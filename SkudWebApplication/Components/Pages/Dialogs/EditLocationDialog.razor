@@ -1,0 +1,131 @@
+﻿@using FluentValidation
+@using SkudWebApplication.Db
+@using SkudWebApplication.Requests.Location
+@using SkudWebApplication.Services.Interfaces
+@using SkudWebApplication.ViewModels
+@rendermode InteractiveServer
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            @Title
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        @if (_locationRequest is not null)
+        {
+            @if (_locationRequest.Id is not null)
+            {
+                <MudTextField Value="@_locationRequest.Id.ToString()" Label="Id" ReadOnly="true" Disabled="true" />
+            }
+            <MudTextField @bind-Value="@_locationRequest.Name" Label="Название" ReadOnly="false" />
+            <MudTextField @bind-Value="@_locationRequest.Description" Label="Описание" AutoGrow MaxLines="4" ReadOnly="false" />
+            <MudAutocomplete T="LocationController" Label="Контроллер" @bind-Value="_locationRequest.Controller" Clearable="true" ResetValueOnEmptyText="true"
+                             SearchFunc="@Search" ToStringFunc="@(e=> e==null?null : $"Id:{e.Id} Sn:{e.Sn} Ip:{e.Ip}")" Strict="false">
+                             <NoItemsTemplate>
+                                 <MudText>Нет доступных контроллеров</MudText>
+                             </NoItemsTemplate>
+                             <BeforeItemsTemplate>
+                                <MudText>Выберите контроллер</MudText>
+                             </BeforeItemsTemplate>
+            </MudAutocomplete>
+        }
+        @if (_validationException is not null)
+        {
+            <MudStack Class="mt-4">
+                @foreach (var error in _validationException.Errors)
+                {
+                    <MudAlert Severity="MudBlazor.Severity.Error" Variant="Variant.Outlined" Dense="true">@error.ErrorMessage</MudAlert>
+                }
+            </MudStack>
+        }
+        @if (_locationRequest is not null && _locationRequest.Id is not null)
+        {
+            <MudButton Class="mt-5" Color="Color.Error" OnClick="Delete">Удалить</MudButton>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Отмена</MudButton>
+        <MudButton Color="Color.Primary" OnClick="Save">Сохранить</MudButton>
+    </DialogActions>
+</MudDialog>
+@code {
+    [Inject] public required WebAppContext DbContext { get; set; }
+    [Inject] public required ILocationService LocationService { get; set; }
+    [Inject] public required IApiProvider ApiProvider { get; set; }
+    [Inject] protected IDialogService DialogService { get; set; } = default!;
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public string Title { get; set; } = string.Empty;
+    [Parameter] public Location Location { get; set; } = new Location();
+    private LocationRequest? _locationRequest;
+    private ValidationException? _validationException;
+    private bool coerceValue;
+    private IEnumerable<LocationController> _availableControllers = new List<LocationController>();
+
+    private void Cancel()
+    {
+        MudDialog.Cancel();
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Location.Id == 0)
+        {
+            _locationRequest = await LocationService.GetAddRequest();
+        }
+        else
+        {
+            _locationRequest = await LocationService.GetEditRequest(Location);
+        }
+        _availableControllers = await LocationService.GetAvailableControllers(_locationRequest.Id);
+    }
+
+    private async Task<IEnumerable<LocationController>> Search(string value)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            return _availableControllers;
+        }
+
+        return _availableControllers
+            .Where(x => x.Ip.Contains(value, StringComparison.InvariantCultureIgnoreCase)
+                || x.Sn.Contains(value, StringComparison.InvariantCultureIgnoreCase)
+                || x.Id.ToString().Contains(value, StringComparison.InvariantCultureIgnoreCase)) ;
+    }
+
+    private async Task Save()
+    {
+        if (_locationRequest != null)
+        {
+            try
+            {
+                await _locationRequest.ValidateAndThrow(DbContext);
+                await _locationRequest.SendToApiAsync(ApiProvider);
+                MudDialog.Close(DialogResult.Ok(Location.Id));
+            }
+            catch (ValidationException ex)
+            {
+                _validationException = ex;
+            }
+            catch (Exception)
+            {
+
+            }
+        }
+    }
+
+    private async Task Delete()
+    {
+        var parameters = new DialogParameters<DeleteDialog>();
+        parameters.Add(x => x.ContentText, "Вы действительно хотите удалить это место прохода?");
+        var options = new DialogOptions() { CloseButton = true, MaxWidth = MaxWidth.ExtraSmall };
+        var dialog = await DialogService.ShowAsync<DeleteDialog>("Удаление", parameters, options);
+        var result = await dialog.Result;
+        if (!result.Canceled && _locationRequest != null && _locationRequest.Id != null)
+        {
+            var deleteRequest = new DeleteLocationRequest() { Id = _locationRequest.Id };
+            await deleteRequest.SendToApiAsync(ApiProvider);
+            MudDialog.Close(DialogResult.Ok(Location.Id));
+        }
+    }
+}

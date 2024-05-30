@@ -1,0 +1,161 @@
+﻿@using Microsoft.EntityFrameworkCore
+@using SkudWebApplication.Db
+@using SkudWebApplication.Requests.Worker
+@using System.Text.RegularExpressions
+@using System.Text
+@using DB = ControllerDomain.Entities;
+<MudPaper Class="pa-4 mt-5">
+    <MudStack Spacing="2">
+        <MudStack Row>
+            @if (Expanded && _newCard == null)
+            {
+                <MudIconButton Icon="@Icons.Material.Outlined.Add" Size="MudBlazor.Size.Small" OnClick="CreateNewCard"/>
+            }
+            <MudButton Class="w-100" OnClick="OnExpandCollapseClick">@ButtonText</MudButton>
+        </MudStack>
+        <MudDivider />
+            <MudCollapse Expanded="Expanded">
+            <MudList Clickable="false">
+                @if(!Cards.Any() && _newCard == null)
+                {
+                    <MudListItem>
+                        <MudField Style="text-align:center;" Variant="Variant.Text">Карт нет</MudField>
+                    </MudListItem>
+                }
+                @foreach (var card in Cards)
+                {
+                <MudListItem>
+                    <MudStack Row>
+                        <MudTextField @bind-Value="card.CardNumb" Label="Номер карты" Variant="Variant.Text" Disabled="true" ReadOnly="true"></MudTextField>
+                        <MudTextField @bind-Value="card.CardNumb16" Label="Номер карты 16" Variant="Variant.Text" Disabled="true" ReadOnly="true"></MudTextField>
+                        <MudIconButton Icon="@Icons.Material.Outlined.Delete" Size="MudBlazor.Size.Small" OnClick="() => DeleteCard(card)"/>
+                    </MudStack>
+                   </MudListItem>
+                }
+                @if (_newCard != null)
+                {
+                    <MudListItem>
+                        <MudStack Row>
+                         <MudTextField @bind-Value="_newCard.CardNumb" T="string" Counter="9" MaxLength="9" HelperText="Формат номера: xxx,xxxxx" Immediate="true" Validation="@(new Func<string, IEnumerable<string>>(MaxCharacters))" Label="Номер карты" Variant="Variant.Text" TextChanged="(string value) => CardNumberChanged(value)" />
+                         <MudTextField @bind-Value="_newCard.CardNumb16" Label="Номер карты 16" Variant="Variant.Text" Disabled="true" ReadOnly="true"></MudTextField>
+                         <MudIconButton Icon="@Icons.Material.Outlined.Check" Size="MudBlazor.Size.Small" OnClick="ConfirmNewCard"/>
+                         <MudIconButton Icon="@Icons.Material.Outlined.Delete" Size="MudBlazor.Size.Small" OnClick="DeleteNewCard"/>
+                     </MudStack>
+                    @if(_newCardException != null)
+                    {
+                        <MudAlert Severity="MudBlazor.Severity.Error" Variant="Variant.Outlined" Dense="true">@_newCardException.Message</MudAlert>
+                    }
+                 </MudListItem>
+                }
+            </MudList>
+        </MudCollapse>
+    </MudStack>
+</MudPaper>
+
+@code {
+    [Inject] public WebAppContext DbContext { get; set; } = default!;
+    [Parameter] public required IEnumerable<WorkerCard> Cards { get; set; }
+    [Parameter] public string ButtonText { get; set; } = "Карты";
+    [Parameter] public bool Expanded { get; set; } = false;
+    private WorkerCard? _newCard = null;
+    private Exception? _newCardException;
+
+    private void OnExpandCollapseClick()
+    {
+        Expanded = !Expanded;
+    }
+
+    private IEnumerable<string> MaxCharacters(string ch)
+    {
+        if (!string.IsNullOrEmpty(ch) && 9 < ch?.Length)
+            yield return "Максимум 9 символов";
+
+        Regex regex = new Regex(@"^\d{3},\d{5}$");
+        if (ch == null || !regex.IsMatch(ch))
+        {
+            yield return "Формат номера карты: xxx,xxxxx";
+        }
+    }
+
+    private void CreateNewCard()
+    {
+        _newCard = new WorkerCard() {IsNew = true};
+    }
+
+    private void ConfirmNewCard()
+    {
+        if(_newCard != null && _newCard.CardNumb16.Count() > 0)
+        {
+            if (Cards.FirstOrDefault(x => x.CardNumb16 == _newCard.CardNumb16) != null)
+            {
+                _newCardException = new Exception("Такая карта уже добавлена этому сотруднику!");
+                return;
+            }
+            if (DbContext.Set<DB.Card>().AsNoTracking().FirstOrDefault(x => x.CardNumb16 == _newCard.CardNumb16) != null)
+            {
+                _newCardException = new Exception("Такая карта уже существует в системе!");
+                return;
+            }
+            Cards = Cards.Append(_newCard);
+            _newCard = null;
+            _newCardException = null;
+        }
+    }
+
+    private void DeleteNewCard()
+    {
+        _newCardException = null;
+        _newCard = null;
+    }
+
+    private void DeleteCard(WorkerCard card)
+    {
+        Cards = Cards.Where(x => x.CardNumb != card.CardNumb);
+    }
+
+    private void CardNumberChanged(string value)
+    {
+        if (_newCard != null)
+        {
+            value = value.Trim();
+            _newCard.CardNumb = value;
+            if (ValidateCardNumber(value))
+            {
+                string[] cardNumberParts = value.Split(',');
+                var bits = new StringBuilder[2];
+                int len;
+                for (var index = 0; index < cardNumberParts.Length; index++)
+                {
+                    len = (index + 1) * 2;
+                    bits[index] = new StringBuilder().Append(Convert.ToString(int.Parse(cardNumberParts[index]), 16).ToUpper());
+                    while (bits[index].Length < len)
+                    {
+                        bits[index].Insert(0, '0');
+                    }
+                }
+                _newCard.CardNumb16 = $"000000{bits[0]}{bits[1]}";
+            }
+            else
+            {
+                _newCard.CardNumb16 = string.Empty;
+            }
+        }
+    }
+
+    private bool ValidateCardNumber(string value)
+    {
+        var cardNumberParts = value.Split(',');
+        if (cardNumberParts.Count() == 2
+            && cardNumberParts[0].Length == 3
+            && cardNumberParts[1].Length == 5
+            && cardNumberParts[0].All(char.IsDigit)
+            && cardNumberParts[1].All(char.IsDigit))
+        {
+            return true;
+        }
+        else
+        {
+            return false;
+        }
+    }
+}

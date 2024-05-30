@@ -1,0 +1,142 @@
+﻿@using Microsoft.AspNetCore.Authorization
+@using SkudWebApplication.Components.Pages.Dialogs
+@using SkudWebApplication.ViewModels;
+@using SkudWebApplication.Services.Interfaces
+@page "/workers"
+@rendermode InteractiveServer
+
+<PageTitle>Сотрудники</PageTitle>
+
+<MudDataGrid T="Worker" Items="Elements" @ref="_dataGrid" ColumnsPanelReordering="true"
+             MultiSelection="true" Filterable="true" DragDropColumnReordering="true"
+    Hideable="true" Groupable="true" Striped="true" ColumnResizeMode="ResizeMode.Column"
+             FilterMode="DataGridFilterMode.Simple" FilterCaseSensitivity="DataGridFilterCaseSensitivity.CaseInsensitive" ShowMenuIcon="true">
+    <ToolBarContent>
+        <MudSpacer />
+        <MudText Typo="Typo.h6">Сотрудники</MudText>
+        <MudSpacer />
+    </ToolBarContent>
+    <Columns>
+        <TemplateColumn Filterable="false" Sortable="false" StickyLeft="true" DragAndDropEnabled="false" Groupable="false">
+            <HeaderTemplate>
+                <MudIconButton Icon="@Icons.Material.Outlined.Add" Size="MudBlazor.Size.Medium" OnClick="AddAsync" />
+            </HeaderTemplate>
+            <CellTemplate>
+                <MudIconButton Size="@MudBlazor.Size.Small" Icon="@Icons.Material.Outlined.Edit" OnClick="() => EditAsync(context)" />
+            </CellTemplate>
+        </TemplateColumn>
+        <PropertyColumn Resizable="true" Property="x => x.Id" Title="Id" Filterable="true" Sortable="true" Groupable="false" DragAndDropEnabled="false" Hidden="true"/>
+        <PropertyColumn HeaderClass="text-center" Property="x => x.PhotoPath" Title="Фото" Filterable="false" Sortable="false" Groupable="false">
+            <CellTemplate>
+                @if (context.Item.PhotoPath == string.Empty || !File.Exists(_phisycalPathToPhoto+context.Item.PhotoPath))
+                {
+                    <MudSkeleton SkeletonType="SkeletonType.Rectangle" Width="200px" Height="200px" Class="rounded-lg" Animation="Animation.False" />
+                }
+                else
+                {
+                    <img src="@("images/"+context.Item.PhotoPath)" loading="lazy" width="200" class="rounded-lg">
+                }
+            </CellTemplate>
+        </PropertyColumn>
+        <PropertyColumn Property="x => x.FullName" Title="ФИО" Filterable="true" Sortable="true" Groupable="false"/>
+        <PropertyColumn Property="x => x.LastName" Title="Фамилия" Filterable="true" Sortable="true" Groupable="false" Hidden="true"/>
+        <PropertyColumn Property="x => x.FirstName" Title="Имя" Filterable="true" Sortable="true" Groupable="false" Hidden="true" />
+        <PropertyColumn Property="x => x.FatherName" Title="Отчество" Filterable="true" Sortable="true" Groupable="false" Hidden="true" />
+        <PropertyColumn Property="x => x.AccessMethodId" Title="Метод доступа" Filterable="true" Sortable="true" >
+            <CellTemplate>
+                @if (_accessMethods is not null)
+                {
+                    <MudForm>
+                        <MudRadioGroup @bind-Value="@context.Item.AccessMethods.Selected">
+                            @foreach (var accessMethod in _accessMethods)
+                            {
+                                <MudRadio Value="@accessMethod.Id" Color="Color.Primary" Disabled="true" Size="MudBlazor.Size.Small">@($"({accessMethod.Id}) {accessMethod.Name}")</MudRadio>
+                            }
+                        </MudRadioGroup>
+                    </MudForm>
+                }
+            </CellTemplate>
+        </PropertyColumn>
+        <PropertyColumn Grou Property="x => x.Group" Title="Подразделение" Filterable="true" Sortable="true" Groupable="true" Grouping="true" GroupBy="x => x.Group">
+            <GroupTemplate>
+                <span style="font-weight:bold">Подразделение: @((string.IsNullOrEmpty(context.Grouping.Key.ToString())) ? "Не задано" : context.Grouping.Key.ToString())<MudChip Variant="Variant.Outlined" Color="Color.Primary" Size="MudBlazor.Size.Small">всего @context.Grouping.Count()</MudChip></span>
+            </GroupTemplate>
+        </PropertyColumn>
+            <PropertyColumn Property="x => x.Cards" Title="Карты" Filterable="false" Sortable="false" Groupable="false">
+            <CellTemplate>
+                <MudList Clickable="false">
+                    @if(!context.Item.Cards.Any()) {
+                        <MudListItem Text="Карт нет" />
+                    }
+                    else
+                    {
+                        @foreach (var card in context.Item.Cards)
+                        {
+                            @if (context.Item.Cards.First().Id != card.Id)
+                            {
+                                <MudPaper>
+                                    <MudDivider DividerType="MudBlazor.DividerType.Inset" />
+                                </MudPaper>
+                            }
+                            <MudListItem Text="@card.Number16" />
+                        }
+                    }
+                </MudList>
+            </CellTemplate>
+        </PropertyColumn>
+        <PropertyColumn Property="x => x.Position" Title="Должность" Filterable="true" Sortable="true" />
+        <PropertyColumn Property="x => x.Comment" Title="Комментарий" Filterable="true" Sortable="true" Groupable="false" />
+        <PropertyColumn Property="x => x.DateBlock" Title="Дата блокировки" Filterable="true" Sortable="false" Groupable="false" />
+    </Columns>
+</MudDataGrid>
+
+@code {
+    [Inject] public required IWorkerService WorkerService { get; set; }
+    [Inject] protected IDialogService DialogService { get; set; } = default!;
+    private MudDataGrid<Worker>? _dataGrid;
+    private IEnumerable<Worker> Elements = new List<Worker>();
+    private IEnumerable<WorkerAccessMethodPair>? _workerAccessMethodPairs;
+    private IEnumerable<AccessMethod>? _accessMethods;
+    private string _phisycalPathToPhoto = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _accessMethods = await WorkerService.GetAccessMethodsAsync();
+        _phisycalPathToPhoto = $"{Directory.GetCurrentDirectory()}\\wwwroot\\images\\";
+        Elements = await WorkerService.GetWorkersAsync();
+    }
+
+    void ExpandAllGroups()
+    {
+        _dataGrid?.ExpandAllGroups();
+    }
+
+    void CollapseAllGroups()
+    {
+        _dataGrid?.CollapseAllGroups();
+    }
+
+    private async Task AddAsync()
+    {
+        var parameters = new DialogParameters<EditWorkerDialog> { { x => x.Worker, new Worker() }, { x => x.Title, "Создание" } };
+        var dialog = await DialogService.ShowAsync<EditWorkerDialog>("Создание", parameters);
+        var result = await dialog.Result;
+        if (!result.Canceled)
+            Elements = await WorkerService.GetWorkersAsync();
+    }
+
+    private async Task EditAsync(CellContext<Worker> context)
+    {
+        var parameters = new DialogParameters<EditWorkerDialog> { { x => x.Worker, context.Item }, { x => x.Title, "Редактирование" } };
+        var dialog = await DialogService.ShowAsync<EditWorkerDialog>("Редактирование", parameters);
+        var result = await dialog.Result;
+        if (!result.Canceled)
+            Elements = await WorkerService.GetWorkersAsync();
+    }
+    
+    private class WorkerAccessMethodPair
+    {
+        public int Id { get; set; }
+        public int? MethodId { get; set; }
+    }
+}

@@ -1,0 +1,72 @@
+﻿@using SkudWebApplication.Requests
+<MudPaper Class="pa-4 mt-5">
+    <MudStack Spacing="2">
+        <MudButton OnClick="OnExpandCollapseClick">@ButtonText</MudButton>
+        <MudDivider />
+        <MudCollapse Expanded="AccessExpanded">
+            <MudList Clickable="false">
+                @foreach (var access in Accesses)
+                {
+                    <MudListItem>
+                        @access.LocationName
+                        <MudStack Row="true">
+                            <MudCheckBox @onclick="() => OnCheckBoxClick(access,CheckBoxType.Both)" @bind-Value="access.Both" Label="Оба" Color="Color.Primary"></MudCheckBox>
+                            <MudCheckBox @onclick="() => OnCheckBoxClick(access,CheckBoxType.Enterance)" @bind-Value="access.Enterance" Label="Вход" Color="Color.Primary"></MudCheckBox>
+                            <MudCheckBox @onclick="() => OnCheckBoxClick(access,CheckBoxType.Exit)" @bind-Value="access.Exit" Label="Выход" Color="Color.Primary"></MudCheckBox>
+                        </MudStack>
+                    </MudListItem>
+                }
+            </MudList>
+        </MudCollapse>
+    </MudStack>
+</MudPaper>
+
+@code {
+    [Parameter] public required IEnumerable<AccessRequest> Accesses { get; set; }
+    [Parameter] public string ButtonText { get; set; } = "Доступ";
+    [Parameter] public bool AccessExpanded { get; set; } = false;
+
+    private enum CheckBoxType
+    {
+        Both,
+        Enterance,
+        Exit
+    }
+
+    private void OnExpandCollapseClick()
+    {
+        AccessExpanded = !AccessExpanded;
+    }
+
+    private void OnBothClick(AccessRequest access)
+    {
+        if (access.Enterance == access.Exit)
+        {
+            access.Enterance = !access.Both;
+            access.Exit = !access.Both;
+            return;
+        }
+        access.Enterance = true;
+        access.Exit = true;
+    }
+
+    private void OnCheckBoxClick(AccessRequest access, CheckBoxType checkBoxType)
+    {
+        if (checkBoxType.Equals(CheckBoxType.Both))
+        {
+            OnBothClick(access);
+            return;
+        }
+        if (access.Enterance.Equals(access.Exit))
+        {
+            access.Both = false;
+            return;
+        }
+        if (access.Enterance != access.Exit
+        && ((checkBoxType.Equals(CheckBoxType.Enterance) && !access.Enterance) 
+            || (checkBoxType.Equals(CheckBoxType.Exit) && !access.Exit)))
+        {
+            access.Both = true;
+        }
+    }
+}

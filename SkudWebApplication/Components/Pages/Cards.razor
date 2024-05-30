@@ -1,0 +1,80 @@
+﻿@using Microsoft.AspNetCore.Authorization
+@using SkudWebApplication.Components.Pages.Dialogs
+@using SkudWebApplication.ViewModels;
+@using SkudWebApplication.Services.Interfaces
+@using Card = SkudWebApplication.ViewModels.Card;
+@page "/cards"
+@rendermode InteractiveServer
+
+<PageTitle>Карты</PageTitle>
+
+<MudDataGrid T="Card" ServerData="DataProvider" @ref="_dataGrid" ColumnsPanelReordering="true"
+             MultiSelection="true" Filterable="true"
+             Hideable="true" Striped="true" ColumnResizeMode="ResizeMode.Column"
+             FilterMode="DataGridFilterMode.Simple" FilterCaseSensitivity="DataGridFilterCaseSensitivity.CaseInsensitive" ShowMenuIcon="true">
+    <ToolBarContent>
+        <MudStack Spacing="2" Row="true">
+            <MudIconButton Icon="@Icons.Material.Outlined.Refresh" Size="MudBlazor.Size.Medium" OnClick="RefreshAsync" />
+        </MudStack>
+        <MudSpacer />
+        <MudText Typo="Typo.h6">Карты</MudText>
+        <MudSpacer />
+    </ToolBarContent>
+    <Columns>
+        <TemplateColumn Filterable="false" Sortable="false" StickyLeft="true">
+            <HeaderTemplate>
+                <MudIconButton Icon="@Icons.Material.Outlined.Add" Size="MudBlazor.Size.Medium" OnClick="AddAsync" />
+            </HeaderTemplate>
+            <CellTemplate>
+                <MudIconButton Size="@MudBlazor.Size.Small" Icon="@Icons.Material.Outlined.Edit" OnClick="() => EditAsync(context)" />
+            </CellTemplate>
+        </TemplateColumn>
+        <PropertyColumn Property="x => x.Id" Title="Id" Filterable="true" Sortable="true" Hidden="true"/>
+        <PropertyColumn Property="x => x.CardNumber" Title="Номер карты" Filterable="true" Sortable="true" />
+        <PropertyColumn Property="x => x.CardNumber16" Title="Номер карты 16" Filterable="true" Sortable="true" />
+        <PropertyColumn Property="x => x.WorkerId" Title="Id сотрудника" Filterable="true" Sortable="true" Hidden="true"/>
+        <PropertyColumn Property="x => x.FullName" Title="ФИО сотрудника" Filterable="true" Sortable="true" />
+        <PropertyColumn Property="x => x.LastName" Title="Фамилия" Filterable="true" Sortable="true" Hidden="true"/>
+         <PropertyColumn Property="x => x.FirstName" Title="Имя" Filterable="true" Sortable="true" Hidden="true" />
+         <PropertyColumn Property="x => x.FatherName" Title="Отчество" Filterable="true" Sortable="true" Hidden="true" />
+    </Columns>
+    <PagerContent>
+        <MudDataGridPager T="Card" RowsPerPageString="Строк на странице:" InfoFormat="{first_item}-{last_item} из {all_items}"/>
+    </PagerContent>
+</MudDataGrid>
+
+@code {
+    [Inject] public required ICardService CardService { get; set; } = default!;
+    [Inject] protected IDialogService DialogService { get; set; } = default!;
+
+    private MudDataGrid<Card>? _dataGrid;
+
+    private async Task AddAsync()
+    {
+        var parameters = new DialogParameters<EditCardDialog> { { x => x.Card, new Card() }, { x => x.Title, "Создание" } };
+        var dialog = await DialogService.ShowAsync<EditCardDialog>("Создание", parameters);
+        var result = await dialog.Result;
+        if (!result.Canceled)
+            await RefreshAsync();
+    }
+
+    private async Task EditAsync(CellContext<Card> context)
+    {
+        var parameters = new DialogParameters<EditCardDialog> { { x => x.Card, context.Item }, { x => x.Title, "Редактирование" } };
+        var dialog = await DialogService.ShowAsync<EditCardDialog>("Редактирование", parameters);
+        var result = await dialog.Result;
+        if (!result.Canceled)
+            await RefreshAsync();
+    }
+
+    private async Task RefreshAsync()
+    {
+        if (_dataGrid is not null)
+            await _dataGrid.ReloadServerData();
+    }
+
+    private async Task<GridData<Card>> DataProvider(MudBlazor.GridState<Card> state)
+    {
+        return await CardService.GetGridData(state.SortDefinitions, state.FilterDefinitions, state.Page, state.PageSize); ;
+    }
+}

@@ -1,0 +1,110 @@
+﻿@using FluentValidation
+@using RestEase
+@using SkudWebApplication.ApiInterfaces
+@using SkudWebApplication.Db
+@using SkudWebApplication.Requests.AccessGroup
+@using SkudWebApplication.Services.Interfaces
+@using SkudWebApplication.ViewModels;
+@using SkudWebApplication.Requests;
+@using SkudWebApplication.Components.Layout.DroufLayouts;
+@rendermode InteractiveServer
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            @Title
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        @if (_accessGroupRequest is not null)
+        {
+            @if (_accessGroupRequest.Id is not null)
+            {
+                <MudTextField Value="@_accessGroupRequest.Id.ToString()" Label="Id" ReadOnly="true" Disabled="true" />
+            }
+            <MudTextField @bind-Value="@_accessGroupRequest.Name" Label="Название" ReadOnly="false" />
+            <AccessLayout Accesses="_accessGroupRequest.Accesses" AccessExpanded="@_accessesExpanded" ButtonText="Доступ"></AccessLayout>
+        }
+        @if (_validationException is not null)
+        {
+            <MudStack Class="mt-4">
+                @foreach (var error in _validationException.Errors)
+                {
+                    <MudAlert Severity="MudBlazor.Severity.Error" Variant="Variant.Outlined" Dense="true">@error.ErrorMessage</MudAlert>
+                }
+            </MudStack>
+        }
+        @if (_accessGroupRequest is not null && _accessGroupRequest.Id is not null)
+        {
+            <MudButton Class="mt-5" Color="Color.Error" OnClick="Delete">Удалить</MudButton>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Отмена</MudButton>
+        <MudButton Color="Color.Primary" OnClick="Save">Сохранить</MudButton>
+    </DialogActions>
+</MudDialog>
+@code {
+    [Inject] public required WebAppContext DbContext { get; set; }
+    [Inject] public required IAccessGroupService AccessGroupService { get; set; }
+    [Inject] public required IApiProvider ApiProvider { get; set; }
+    [Inject] protected IDialogService DialogService { get; set; } = default!;
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public string Title { get; set; } = string.Empty;
+    [Parameter] public AccessGroup AccessGroup { get; set; } = new AccessGroup();
+    private AccessGroupRequest? _accessGroupRequest;
+    private bool _accessesExpanded = true;
+    private ValidationException? _validationException;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (AccessGroup.Id == 0)
+        {
+            _accessGroupRequest = await AccessGroupService.GetAddRequest();
+        }
+        else
+        {
+            _accessGroupRequest = await AccessGroupService.GetEditRequest(AccessGroup);
+        }
+    }
+
+    private void Cancel()
+    {
+        MudDialog.Cancel();
+    }
+
+    private async Task Save()
+    {
+        if (_accessGroupRequest != null)
+        {
+            try
+            {
+                await _accessGroupRequest.ValidateAndThrow(DbContext);
+                await _accessGroupRequest.SendToApiAsync(ApiProvider);
+                MudDialog.Close(DialogResult.Ok(AccessGroup.Id));
+            }
+            catch (ValidationException ex)
+            {
+                _validationException = ex;
+            }
+            catch (Exception)
+            {
+
+            }
+        }
+    }
+    private async Task Delete()
+    {
+        var parameters = new DialogParameters<DeleteDialog>();
+        parameters.Add(x => x.ContentText, "Вы действительно хотите удалить эту группу доступа?");
+        var options = new DialogOptions() { CloseButton = true, MaxWidth = MaxWidth.ExtraSmall };
+        var dialog = await DialogService.ShowAsync<DeleteDialog>("Удаление", parameters, options);
+        var result = await dialog.Result;
+        if (!result.Canceled && _accessGroupRequest != null && _accessGroupRequest.Id != null)
+        {
+            var deleteRequest = new DeleteAccessGroupRequest() { Id = _accessGroupRequest.Id };
+            await deleteRequest.SendToApiAsync(ApiProvider);
+            MudDialog.Close(DialogResult.Ok(AccessGroup.Id));
+        }
+    }
+}

@@ -1,0 +1,74 @@
+﻿@using FluentValidation
+@using MediatR
+@using SkudWebApplication.Db
+@using SkudWebApplication.Requests.Auth
+@using SkudWebApplication.Services.Interfaces
+@using SkudWebApplication.States
+@page "/login"
+@rendermode InteractiveServer
+
+<MudPaper Class="position-absolute top-50 start-50 translate-middle pa-4" Style="width:40%">
+    <MudForm>
+        <h3>Вход</h3>
+        <MudTextField T="string"
+                      @bind-Value="_loginRequest.Login"
+                      Placeholder="Логин"
+                      HelperText="Введите логин"
+                      autocomplete="username" />
+        <MudTextField T="string"
+                      @bind-Value="_loginRequest.Password"
+                      Placeholder="Пароль"
+                      HelperText="Введите пароль"
+                      InputType="InputType.Password"
+                      autocomplete="current-password" />
+        <MudButton name="tryEnter" Variant="Variant.Filled" Color="Color.Primary" OnClick="TryEnter" ButtonType="MudBlazor.ButtonType.Button">Войти</MudButton>
+    </MudForm>
+    @if (_errors != null && _errors.Any())
+    {
+        <MudStack Class="mt-4">
+            @foreach (var error in _errors)
+            {
+                <MudAlert Severity="MudBlazor.Severity.Error" Variant="Variant.Outlined" Dense="true">@error</MudAlert>
+            }
+        </MudStack>
+    }
+</MudPaper>
+
+<MudDialogProvider FullWidth="true"
+                   MaxWidth="MaxWidth.Small"
+                   CloseButton="true"
+                   DisableBackdropClick="false"
+                   NoHeader="false"
+                   Position="DialogPosition.Center"
+                   CloseOnEscapeKey="true" />
+<MudThemeProvider />
+<MudSnackbarProvider />
+
+@code {
+    [Inject] public required WebAppContext DbContext { get; set; }
+    [Inject] public required IMediator Mediator { get; set; }
+    [Inject] public required IApiProvider ApiProvider { get; set; }
+    private List<string> _errors = new List<string>();
+    private LoginRequest _loginRequest = new LoginRequest();
+
+    public async Task TryEnter()
+    {
+        await Task.Delay(1);
+        try
+        {
+            await _loginRequest.ValidateAndThrow(DbContext);
+            var response = await _loginRequest.SendToApiAsync(ApiProvider);
+            var customAuthStateProvider = (CustomAuthenticationStateProvider)AuthStateProvider;
+            customAuthStateProvider.UpdateAuthenticationState(response.JWTToken);
+            NavManager.NavigateTo("/events", forceLoad:true);
+        }
+        catch(ValidationException ex)
+        {
+            _errors = ex.Errors.Select(x => x.ErrorMessage).ToList();
+        }
+        catch (Exception)
+        {
+            
+        }
+    }
+}

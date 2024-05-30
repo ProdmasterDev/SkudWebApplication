@@ -1,0 +1,167 @@
+﻿@using FluentValidation
+@using SkudWebApplication.Db
+@using SkudWebApplication.Requests.Card
+@using SkudWebApplication.Services.Interfaces
+@using SkudWebApplication.ViewModels
+@using System.Text
+@rendermode InteractiveServer
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            @Title
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        @if (_cardRequest is not null)
+        {
+            @if (_cardRequest.Id is not null)
+            {
+                <MudTextField Value="@_cardRequest.Id.ToString()" Label="Id" ReadOnly="true" Disabled="true" />
+            }
+            <MudTextField @bind-Value="@_cardRequest.CardNumb" TextChanged="(string value) => CardNumberChanged(value)" Label="Номер карты" ReadOnly="false" Disabled="false" />
+            <MudTextField @bind-Value="@_cardRequest.CardNumb16" Label="Номер карты 16" ReadOnly="true" Disabled />
+            <MudAutocomplete T="CardWorker" Label="Сотрудник" @bind-Value="_cardRequest.Worker" Clearable="true" ResetValueOnEmptyText="true"
+                             SearchFunc="@Search" ToStringFunc="@(e=> e==null?null : $"({e.Id}) {e.LastName} {e.FirstName} {e.FatherName} {e.Position}")" Strict="false">
+                <NoItemsTemplate>
+                    <MudText>Нет доступных сотрудников</MudText>
+                </NoItemsTemplate>
+                <BeforeItemsTemplate>
+                    <MudText>Выберите сотрудника</MudText>
+                </BeforeItemsTemplate>
+            </MudAutocomplete>
+        }
+        @if (_validationException is not null)
+        {
+            <MudStack Class="mt-4">
+                @foreach (var error in _validationException.Errors)
+                {
+                    <MudAlert Severity="MudBlazor.Severity.Error" Variant="Variant.Outlined" Dense="true">@error.ErrorMessage</MudAlert>
+                }
+            </MudStack>
+        }
+        @if (_cardRequest is not null && _cardRequest.Id is not null)
+        {
+            <MudButton Class="mt-5" Color="Color.Error" OnClick="Delete">Удалить</MudButton>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Отмена</MudButton>
+        <MudButton Color="Color.Primary" OnClick="Save">Сохранить</MudButton>
+    </DialogActions>
+</MudDialog>
+@code {
+    [Inject] public required WebAppContext DbContext { get; set; }
+    [Inject] public required ICardService CardService { get; set; }
+    [Inject] public required IApiProvider ApiProvider { get; set; }
+    [Inject] protected IDialogService DialogService { get; set; } = default!;
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public string Title { get; set; } = string.Empty;
+    [Parameter] public ViewModels.Card Card { get; set; } = new ViewModels.Card();
+    private CardRequest? _cardRequest;
+    private ValidationException? _validationException;
+
+    private void Cancel()
+    {
+        MudDialog.Cancel();
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Card.Id == 0)
+        {
+            _cardRequest = await CardService.GetAddRequest();
+        }
+        else
+        {
+            _cardRequest = await CardService.GetEditRequest(Card);
+        }
+    }
+
+    private async Task<IEnumerable<CardWorker>> Search(string value)
+    {
+        return await CardService.GetAvailableWorkers(value);
+    }
+
+    private void CardNumberChanged(string value)
+    {
+        if (_cardRequest != null)
+        {
+            value = value.Trim();
+            _cardRequest.CardNumb = value;
+            if (ValidateCardNumber(value))
+            {
+                string[] cardNumberParts = value.Split(',');
+                var bits = new StringBuilder[2];
+                int len;
+                for (var index = 0; index < cardNumberParts.Length; index++)
+                {
+                    len = (index + 1) * 2;
+                    bits[index] = new StringBuilder().Append(Convert.ToString(int.Parse(cardNumberParts[index]), 16).ToUpper());
+                    while (bits[index].Length < len)
+                    {
+                        bits[index].Insert(0, '0');
+                    }
+                }
+                _cardRequest.CardNumb16 = $"000000{bits[0]}{bits[1]}";
+            }
+            else
+            {
+                _cardRequest.CardNumb16 = string.Empty;
+            }
+        }
+    }
+
+    private bool ValidateCardNumber(string value)
+    {
+        var cardNumberParts = value.Split(',');
+        if (cardNumberParts.Count() == 2 
+            && cardNumberParts[0].Length == 3 
+            && cardNumberParts[1].Length == 5 
+            && cardNumberParts[0].All(char.IsDigit) 
+            && cardNumberParts[1].All(char.IsDigit))
+        {
+            return true;
+        }
+        else
+        {
+            return false;
+        }
+    }
+
+    private async Task Save()
+    {
+        if (_cardRequest != null)
+        {
+            try
+            {
+                await _cardRequest.ValidateAndThrow(DbContext);
+                await _cardRequest.SendToApiAsync(ApiProvider);
+                MudDialog.Close(DialogResult.Ok(Card.Id));
+            }
+            catch (ValidationException ex)
+            {
+                _validationException = ex;
+            }
+            catch (Exception)
+            {
+
+            }
+        }
+    }
+
+    private async Task Delete()
+    {
+        var parameters = new DialogParameters<DeleteDialog>();
+        parameters.Add(x => x.ContentText, "Вы действительно хотите удалить эту карту?");
+        var options = new DialogOptions() { CloseButton = true, MaxWidth = MaxWidth.ExtraSmall };
+        var dialog = await DialogService.ShowAsync<DeleteDialog>("Удаление", parameters, options);
+        var result = await dialog.Result;
+        if (!result.Canceled && _cardRequest != null && _cardRequest.Id != null)
+        {
+            var deleteRequest = new DeleteCardRequest() { Id = _cardRequest.Id };
+            await deleteRequest.SendToApiAsync(ApiProvider);
+            MudDialog.Close(DialogResult.Ok(Card.Id));
+        }
+    }
+}

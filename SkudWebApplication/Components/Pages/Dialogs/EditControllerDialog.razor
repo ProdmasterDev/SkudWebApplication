@@ -1,0 +1,123 @@
+﻿@using FluentValidation
+@using SkudWebApplication.Requests.Controller
+@using SkudWebApplication.Services.Interfaces
+@using SkudWebApplication.ViewModels;
+@rendermode InteractiveServer
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            @Title
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        @if (_controllerRequest is not null)
+        {
+            @if (_controllerRequest.Id is not null)
+            {
+                <MudTextField Value="@_controllerRequest.Id.ToString()" Label="Id" ReadOnly="true" Disabled="true" />
+            }
+            <MudTextField Value="@_controllerRequest.Sn" Label="Серийный номер" ReadOnly="true" Disabled="true" />
+            <MudTextField Value="@_controllerRequest.IpAddress" Label="IP адрес" ReadOnly="true" Disabled="true" />
+            <MudAutocomplete T="ControllerLocation" Label="Место установки" @bind-Value="_controllerRequest.Location" Clearable="true" ResetValueOnEmptyText="true"
+                             SearchFunc="@Search" ToStringFunc="@(e=> e==null?null : $"({e.Id}) {e.Name}")" Strict="false">
+                <NoItemsTemplate>
+                    <MudText>Нет доступных мест установки</MudText>
+                </NoItemsTemplate>
+                <BeforeItemsTemplate>
+                    <MudText>Выберите место установки</MudText>
+                </BeforeItemsTemplate>
+            </MudAutocomplete>
+            <MudTextField Value="@_controllerRequest.LastPing" Label="Последний отклик" ReadOnly="true" Disabled="true" />
+            <MudTextField Value="@_controllerRequest.LastPowerOn" Label="Последнее включение" ReadOnly="true" Disabled="true" />
+            <MudTextField Value="@_controllerRequest.Type" Label="Тип" ReadOnly="true" Disabled="true" />
+            <MudTextField Value="@_controllerRequest.FwVer" Label="Версия прошивки" ReadOnly="true" Disabled="true" />
+            <MudTextField Value="@_controllerRequest.ComFwVer" Label="Версия модуля связи" ReadOnly="true" Disabled="true" />
+        }
+        @if (_validationException is not null)
+        {
+            <MudStack Class="mt-4">
+                @foreach (var error in _validationException.Errors)
+                {
+                    <MudAlert Severity="MudBlazor.Severity.Error" Variant="Variant.Outlined" Dense="true">@error.ErrorMessage</MudAlert>
+                }
+            </MudStack>
+        }
+        @if (_controllerRequest is not null && _controllerRequest.Id is not null)
+        {
+            <MudButton Class="mt-5" Color="Color.Error" OnClick="Delete">Удалить</MudButton>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Отмена</MudButton>
+        <MudButton Color="Color.Primary" OnClick="Save">Сохранить</MudButton>
+    </DialogActions>
+</MudDialog>
+@code {
+    [Inject] public required IControllerService ControllerService { get; set; }
+    [Inject] public required IApiProvider ApiProvider { get; set; }
+    [Inject] protected IDialogService DialogService { get; set; } = default!;
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public string Title { get; set; } = string.Empty;
+    [Parameter] public Controller Controller { get; set; } = new Controller();
+    private ControllerRequest? _controllerRequest;
+    private IEnumerable<ControllerLocation> _availableLocations = new List<ControllerLocation>();
+    private ValidationException? _validationException;
+
+    private void Cancel()
+    {
+        MudDialog.Cancel();
+    }
+
+    private async Task Delete()
+    {
+        var parameters = new DialogParameters<DeleteDialog>();
+        parameters.Add(x => x.ContentText, "Вы действительно хотите удалить этот контроллер?");
+        var options = new DialogOptions() { CloseButton = true, MaxWidth = MaxWidth.ExtraSmall };
+        var dialog = await DialogService.ShowAsync<DeleteDialog>("Удаление", parameters, options);
+        var result = await dialog.Result;
+        if (!result.Canceled && _controllerRequest != null && _controllerRequest.Id != null)
+        {
+            var deleteRequest = new DeleteControllerRequest() { Id = _controllerRequest.Id };
+            await deleteRequest.SendToApiAsync(ApiProvider);
+            MudDialog.Close(DialogResult.Ok(Controller.Id));
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _controllerRequest = await ControllerService.GetEditRequest(Controller);
+        _availableLocations = await ControllerService.GetAvailableLocations(_controllerRequest.Id);
+    }
+
+    private async Task<IEnumerable<ControllerLocation>> Search(string value)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            return _availableLocations;
+        }
+
+        return _availableLocations
+            .Where(x => x.Name.Contains(value, StringComparison.InvariantCultureIgnoreCase)
+                || x.Id.ToString().Contains(value, StringComparison.InvariantCultureIgnoreCase));
+    }
+    private async Task Save()
+    {
+        if (_controllerRequest != null)
+        {
+            try
+            {
+                await _controllerRequest.SendToApiAsync(ApiProvider);
+                MudDialog.Close(DialogResult.Ok(Controller.Id));
+            }
+            catch (ValidationException ex)
+            {
+                _validationException = ex;
+            }
+            catch (Exception)
+            {
+
+            }
+        }
+    }
+}

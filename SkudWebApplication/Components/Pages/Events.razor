@@ -1,0 +1,234 @@
+﻿@page "/events"
+@using Microsoft.AspNetCore.Authorization
+@using SkudWebApplication.Components.Pages.Dialogs
+@using SkudWebApplication.Services.Interfaces
+@using SkudWebApplication.ViewModels
+@using ButtonType = MudBlazor.ButtonType
+@using FilterOperator = BlazorBootstrap.FilterOperator;
+@rendermode InteractiveServer
+@inject ISnackbar Snackbar
+@inject IJSRuntime JS
+
+<PageTitle>События</PageTitle>
+
+<MudDataGrid T="Event" ServerData="DataProvider" @ref="_dataGrid" ColumnsPanelReordering="true"
+             MultiSelection="true" Filterable="true" DragDropColumnReordering="true"
+             Hideable="true" Striped="true" ColumnResizeMode="ResizeMode.Column"
+             FilterMode="DataGridFilterMode.Simple" FilterCaseSensitivity="DataGridFilterCaseSensitivity.CaseInsensitive" ShowMenuIcon="true">
+    <ToolBarContent>
+        <MudStack Spacing="2" Row="true">
+            <MudIconButton Icon="@Icons.Material.Outlined.Refresh" Size="MudBlazor.Size.Medium" OnClick="RefreshAsync" />
+            <MudButton ButtonType="ButtonType.Button" OnClick="OpenLocationFilter">Контроллеры</MudButton>
+            <MudButton ButtonType="ButtonType.Button" OnClick="OpenGroupFilter">Группы</MudButton>
+        </MudStack>
+        <MudSpacer />
+        <MudText Typo="Typo.h6">События</MudText>
+        <MudSpacer />
+        <MudStack Spacing="2" Row="true">
+            <MudButton ButtonType="ButtonType.Button" OnClick="GetReport">Отчёт</MudButton>
+            <MudButton ButtonType="ButtonType.Button" OnClick="GetPrint">Печать</MudButton>
+        </MudStack>
+    </ToolBarContent>
+    <Columns>
+        <PropertyColumn Property="x => x.Id" Title="Id" Filterable="false" Sortable="true" Hidden="true"/>
+        <PropertyColumn Property="x => x.Create" Title="Дата" Filterable="true" Sortable="false" />
+        <PropertyColumn Property="x => x.EventTypeName" Title="Событие" Filterable="false" Sortable="false" />
+        <PropertyColumn Property="x => x.LocationName" Title="Контроллер" Filterable="false" Sortable="false" />
+        <PropertyColumn Property="x => x.CardNumber16" Title="Карта" Filterable="true" Sortable="false" />
+        <PropertyColumn Property="x => x.WorkerId" Title="Id сотрудника" Filterable="true" Sortable="false" Hidden="true"/>
+        <PropertyColumn Property="x => x.FullName" Title="ФИО сотрудника" Filterable="true" Sortable="false" />
+        <PropertyColumn Property="x => x.LastName" Title="Фамилия" Filterable="true" Sortable="false" Hidden="true"/>
+        <PropertyColumn Property="x => x.FirstName" Title="Имя" Filterable="true" Sortable="false" Hidden="true"/>
+        <PropertyColumn Property="x => x.FatherName" Title="Отчество" Filterable="true" Sortable="false" Hidden="true"/>
+        <PropertyColumn Property="x => x.Flags" Title="Флаги" Filterable="true" Sortable="false" Hidden="true"/>
+    </Columns>
+    <PagerContent>
+        <MudDataGridPager T="Event" RowsPerPageString="Строк на странице:" InfoFormat="{first_item}-{last_item} из {all_items}"/>
+    </PagerContent>
+</MudDataGrid>
+
+
+
+<MudProgressCircular Class="position-absolute top-50 start-50 translate-middle" Color="Color.Primary" Style="height:70px;width:70px;" Indeterminate="true" hidden="@_hiddenProgress" />
+
+@code {
+    [Inject] public required IEventService EventService { get; set; }
+    [Inject] protected IDialogService DialogService { get; set; } = default!;
+    public AdditionalFiltersEvent? _additionalFiltersEvent;
+
+    private MudDataGrid<Event>? _dataGrid;
+    private bool _hiddenProgress = true;
+    private MudBlazor.GridState<Event>? _actualGridState;
+
+    private Task<IJSObjectReference> _module;
+    private Task<IJSObjectReference> Module => _module ??= JS.InvokeAsync<IJSObjectReference>("import", "./js/downloadFile.js").AsTask();
+
+    // private bool _isOpen = false;
+
+    // public void ToggleOpen() => _isOpen = !_isOpen;
+
+    protected override void OnInitialized()
+    {
+        _additionalFiltersEvent = EventService.GetAdditionalFiltersEvent();
+        Snackbar.Configuration.PositionClass = Defaults.Classes.Position.BottomLeft;
+    }
+
+    private async Task<GridData<Event>> DataProvider(MudBlazor.GridState<Event> state)
+    {
+        _actualGridState = state;
+        return await EventService.GetGridData(state.SortDefinitions, state.FilterDefinitions, state.Page, state.PageSize, _additionalFiltersEvent);
+    }
+
+    private async Task RefreshAsync()
+    {
+        if (_dataGrid is not null)
+            await _dataGrid.ReloadServerData();
+    }
+    private async Task OpenLocationFilter()
+    {
+        if (_additionalFiltersEvent != null)
+        {
+            var parameters = new DialogParameters<FilterEventLocation> { { x => x.Filters, _additionalFiltersEvent }, { x => x.Title, "Фильтр по контроллерам" } };
+            var dialog = await DialogService.ShowAsync<FilterEventLocation>("Фильтр", parameters);
+            var result = await dialog.Result;
+            if (!result.Canceled)
+            {
+                var locationsFilter = (ControllerLocationsFilter)result.Data;
+                if (locationsFilter != null)
+                {
+                    var list = new List<ControllerLocationSelect>();
+                    foreach (var select in locationsFilter.ControllerLocationSelect)
+                    {
+                        list.Add(new ControllerLocationSelect() { Location = select.Location, Selected = select.Selected });
+                    }
+                    _additionalFiltersEvent.ControllerLocationsFilter.ControllerLocationSelect = list;
+                }
+                await RefreshAsync();
+            }
+        }
+    }
+    private async Task OpenGroupFilter()
+    {
+        if (_additionalFiltersEvent != null)
+        {
+            var parameters = new DialogParameters<FilterEventGroup> { { x => x.Filters, _additionalFiltersEvent }, { x => x.Title, "Фильтр по подразделениям" } };
+            var dialog = await DialogService.ShowAsync<FilterEventGroup>("Фильтр", parameters);
+            var result = await dialog.Result;
+            if (!result.Canceled)
+            {
+                var workerGroupsFilter = (WorkerGroupsFilter)result.Data;
+                if (workerGroupsFilter!=null)
+                {
+                    var list = new List<WorkerGroupSelect>();
+                    foreach (var select in workerGroupsFilter.WorkerGroupSelects)
+                    {
+                        list.Add(new WorkerGroupSelect() { WorkerGroup = select.WorkerGroup, Selected = select.Selected });
+                    }
+                    _additionalFiltersEvent.WorkerGroupsFilter.WorkerGroupSelects = list;
+                }
+                await RefreshAsync();
+            }
+        }
+    }
+
+    private void CreateSuccessSnackbar(string path)
+    {
+        string message = "Отчёт создан!";
+        Snackbar.Add(message, Severity.Success, config =>
+        {
+            config.RequireInteraction = true;
+            config.ShowCloseIcon = false;
+            config.Onclick = snackbar =>
+            {
+                return Task.CompletedTask;
+            };
+        });
+    }
+
+    private void CreateLoadingSnackbar()
+    {
+        string message = "Создание отчёта началось!";
+        Snackbar.Add(message, Severity.Warning, config =>
+        {
+            config.RequireInteraction = true;
+            config.ShowCloseIcon = false;
+            config.Onclick = snackbar =>
+            {
+                return Task.CompletedTask;
+            };
+        });
+    }
+
+    private void CreateErrorSnackbar()
+    {
+        string message = "Ошибка при создании отчёта!";
+        Snackbar.Add(message, Severity.Error, config =>
+        {
+            config.RequireInteraction = true;
+            config.ShowCloseIcon = false;
+
+            config.Onclick = snackbar =>
+            {
+                return Task.CompletedTask;
+            };
+        });
+    }
+
+    private async Task GetReport()
+    {
+        _hiddenProgress = false;
+
+        CreateLoadingSnackbar();
+
+        try
+        {
+            if (_actualGridState != null)
+            {
+                var a = await EventService.GetReport(_actualGridState.SortDefinitions, _actualGridState.FilterDefinitions, _additionalFiltersEvent);
+                await DownloadFileFromStream(a);
+                CreateSuccessSnackbar(a);
+            }
+        }
+        catch (Exception)
+        {
+            CreateErrorSnackbar();
+        }
+        finally
+        {
+            _hiddenProgress = true;
+        }
+    }
+
+    private async Task GetPrint()
+    {
+        _hiddenProgress = false;
+        try
+        {
+            await Task.Delay(2000);
+        }
+        finally
+        {
+            _hiddenProgress = true;
+        }
+    }
+
+    private async Task DownloadFileFromStream(string path)
+    {
+        var fileStream = File.OpenRead(path);
+        var fileName = $"отчёт_{DateTime.Now.ToString()}.xlsx";
+
+        using var streamRef = new DotNetStreamReference(stream: fileStream);
+        var module = await Module;
+
+        await JS.InvokeVoidAsync("downloadFileFromStream", fileName, streamRef);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_module != null)
+        {
+            var module = await _module;
+            await module.DisposeAsync();
+        }
+    }
+}

@@ -1,0 +1,53 @@
+﻿@using SkudWebApplication.ViewModels
+@rendermode InteractiveServer
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            @Title
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        @if (_workerGroupFilter != null)
+        {
+            @foreach (var select in _workerGroupFilter.WorkerGroupSelects)
+            {
+                <MudCheckBox ReadOnly="false" @bind-Value="select.Selected" Disabled="false">@select.WorkerGroup.Name</MudCheckBox>
+            }
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Отмена</MudButton>
+        <MudButton Color="Color.Primary" OnClick="Save">Сохранить</MudButton>
+    </DialogActions>
+</MudDialog>
+@code {
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public string Title { get; set; } = string.Empty;
+    [Parameter] public AdditionalFiltersEvent? Filters { get; set; }
+    private WorkerGroupsFilter? _workerGroupFilter { get; set; }
+
+    protected override void OnInitialized()
+    {
+        if (Filters != null)
+        {
+            _workerGroupFilter = new WorkerGroupsFilter();
+            var list = new List<WorkerGroupSelect>();
+            foreach (var select in Filters.WorkerGroupsFilter.WorkerGroupSelects)
+            {
+                list.Add(new WorkerGroupSelect() { WorkerGroup = select.WorkerGroup, Selected = select.Selected });
+            }
+            _workerGroupFilter.WorkerGroupSelects = list;
+        }
+    }
+
+    private void Cancel()
+    {
+        MudDialog.Cancel();
+    }
+
+    private void Save()
+    {
+        MudDialog.Close(DialogResult.Ok(_workerGroupFilter));
+    }
+}

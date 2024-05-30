@@ -1,0 +1,278 @@
+﻿@using FluentValidation
+@using SkudWebApplication.Components.Layout.DroufLayouts
+@using SkudWebApplication.Db
+@using SkudWebApplication.Requests.Worker
+@using SkudWebApplication.Services.Interfaces
+@using SkudWebApplication.ViewModels;
+@rendermode InteractiveServer
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            @Title
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        @if (_workerRequest is not null)
+        {
+            <MudGrid Justify="Justify.Center">
+                <MudItem xs="6">
+                    @if (_workerRequest.Id is not null)
+                    {
+                        <MudTextField Value="@_workerRequest.Id.ToString()" Label="Id" ReadOnly="true" Disabled="true" />
+                    }
+                    <MudTextField @bind-Value="@_workerRequest.LastName" Label="Фамилия" ReadOnly="false" />
+                    <MudTextField @bind-Value="@_workerRequest.FirstName" Label="Имя" ReadOnly="false" />
+                    <MudTextField @bind-Value="@_workerRequest.FatherName" Label="Отчество" ReadOnly="false" />
+                    <MudTextField @bind-Value="@_workerRequest.Position" Label="Должность" ReadOnly="false" />
+                    <MudAutocomplete T="Requests.Worker.WorkerGroup" Label="Подразделение" @bind-Value="_workerRequest.Group" Clearable="true" ResetValueOnEmptyText="true"
+                                     SearchFunc="@SearchGroup" ToStringFunc="@(e=> e==null?null : $"({e.Id}) {e.Name}")" Strict="false">
+                        <NoItemsTemplate>
+                            <MudText>Нет доступных подразделений</MudText>
+                        </NoItemsTemplate>
+                        <BeforeItemsTemplate>
+                            <MudText>Выберите подразделение</MudText>
+                        </BeforeItemsTemplate>
+                    </MudAutocomplete>
+                    <MudAutocomplete T="WorkerAccessMethod" Label="Метод доступа" @bind-Value="_workerRequest.AccessMethod" Clearable="true" ResetValueOnEmptyText="true"
+                                     SearchFunc="@SearchAccessMethod" ToStringFunc="@(e=> e==null?null : $"({e.Id}) {e.Name}")" Strict="false">
+                        <NoItemsTemplate>
+                            <MudText>Нет доступных методов доступа</MudText>
+                        </NoItemsTemplate>
+                        <BeforeItemsTemplate>
+                            <MudText>Выберите метод доступа</MudText>
+                        </BeforeItemsTemplate>
+                    </MudAutocomplete>
+                    <MudTextField @bind-Value="@_workerRequest.Comment" Label="Комментарий" AutoGrow MaxLines="4" ReadOnly="false" />
+                </MudItem>
+                <MudItem xs="6">
+                    @if (!_pictureExists)
+                    {
+                        <MudSkeleton SkeletonType="SkeletonType.Rectangle" Width="200px" Height="200px" Class="rounded-lg" Animation="Animation.False" />
+                    }
+                    else
+                    {
+                        <img src="@("images/"+_workerRequest.ImagePath)" loading="lazy" width="200" class="rounded-lg">
+                    }
+                    <MudStack Row="true">
+                        <MudFileUpload T="IBrowserFile"
+                                       FilesChanged="UploadFiles"
+                                       Accept=".png, .jpg"
+                                       Disabled="@_pictureExists">
+                            <ButtonTemplate>
+                                <MudButton HtmlTag="label"
+                                           Variant="Variant.Filled"
+                                           Color="Color.Primary"
+                                           StartIcon="@Icons.Material.Filled.FileUpload"
+                                           for="@context.Id">
+                                    Загрузить фото
+                                </MudButton>
+                            </ButtonTemplate>
+                        </MudFileUpload>
+                        <MudIconButton Icon="@Icons.Material.Outlined.Delete" Size="MudBlazor.Size.Medium" OnClick="DeleteFile" />
+                    </MudStack>
+                    <MudDatePicker Date="_workerRequest.DateBlock" DateChanged="DateChanged" Label="Дата блокировки" Editable="true" Clearable="true" />
+                    <MudTimePicker Time="_timeBlock" TimeChanged="TimeChanged" Label="Время блокировки" Editable="true"></MudTimePicker>
+                </MudItem>
+            </MudGrid>
+
+            <CardsLayout Cards="_workerRequest.Cards" Expanded="@_cardsExpanded" @ref="clRef"></CardsLayout>
+            <AccessLayout Accesses="_workerRequest.Accesses" AccessExpanded="@_accessesExpanded" ButtonText="Доступы по точкам"></AccessLayout>
+        }
+        @if (_validationException is not null)
+        {
+            <MudStack Class="mt-4">
+                @foreach (var error in _validationException.Errors)
+                {
+                    <MudAlert Severity="MudBlazor.Severity.Error" Variant="Variant.Outlined" Dense="true">@error.ErrorMessage</MudAlert>
+                }
+            </MudStack>
+        }
+        @if (_workerRequest is not null && _workerRequest.Id is not null)
+        {
+            <MudButton Class="mt-5" Color="Color.Error" OnClick="Delete">Удалить</MudButton>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Отмена</MudButton>
+        <MudButton Color="Color.Primary" OnClick="Save">Сохранить</MudButton>
+    </DialogActions>
+</MudDialog>
+@code {
+    [Inject] public required WebAppContext DbContext { get; set; }
+    [Inject] public required IWorkerService WorkerService { get; set; }
+    [Inject] public required IApiProvider ApiProvider { get; set; }
+    [Inject] protected IDialogService DialogService { get; set; } = default!;
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public string Title { get; set; } = string.Empty;
+    [Parameter] public Worker Worker { get; set; } = new Worker();
+    private WorkerRequest? _workerRequest;
+    private bool _accessesExpanded = false;
+    private bool _cardsExpanded = false;
+    private ValidationException? _validationException;
+    private IEnumerable<WorkerAccessMethod> _availableAccessMethods = new List<WorkerAccessMethod>();
+    private TimeSpan? _timeBlock;
+    private bool _pictureExists => (_workerRequest == null) ? false : !_workerRequest.ImagePath.Trim().Equals(string.Empty);
+    private long maxFileSize = 20 * 1024 * 1024; //20 Мб
+    private CardsLayout? clRef;
+
+    private void TimeChanged(TimeSpan? timeSpan)
+    {
+        Log("TimeChanged");
+        if (_workerRequest != null && _workerRequest.DateBlock != null)
+        {
+            _timeBlock = timeSpan;
+        }
+    }
+
+    private void DateChanged(DateTime? dateTime)
+    {
+        Log("DateChanged");
+        if (_workerRequest != null)
+        {
+            _workerRequest.DateBlock = dateTime;
+            if (_workerRequest.DateBlock == null)
+            {
+                if (_timeBlock != null)
+                {
+                    _timeBlock = null;
+                }
+            }
+            else
+            {
+                if (_timeBlock == null)
+                {
+                    _timeBlock = TimeSpan.FromMilliseconds(0);
+                }
+
+            }
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Worker.Id == 0)
+        {
+            _workerRequest = await WorkerService.GetAddRequest();
+        }
+        else
+        {
+            _workerRequest = await WorkerService.GetEditRequest(Worker);
+            if (_workerRequest != null && _workerRequest.DateBlock!=null)
+            {
+                _timeBlock = _workerRequest.DateBlock.Value - _workerRequest.DateBlock.Value.Date;
+            }
+        }
+        _availableAccessMethods = await WorkerService.GetAvailableAccessMethods();
+    }
+
+    private async Task<IEnumerable<Requests.Worker.WorkerGroup>> SearchGroup(string value)
+    {
+        return await WorkerService.GetAvailableGroups(value);
+    }
+
+    private async Task<IEnumerable<WorkerAccessMethod>> SearchAccessMethod(string value)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            return _availableAccessMethods;
+        }
+
+        return _availableAccessMethods
+            .Where(x => x.Name.Contains(value, StringComparison.InvariantCultureIgnoreCase));
+    }
+
+    private async Task UploadFiles(IBrowserFile file)
+    {
+        if (!file.ContentType.Contains("image/"))
+        {
+            return;
+        }
+        var extension = file.ContentType.Replace("image/", string.Empty);
+        var fileName = $"{new Random().NextInt64(999)}-{DateTime.UtcNow.ToBinary()}.{extension}";
+
+        try
+        {
+            Log(file.ContentType);
+            Log(fileName);
+            var path = $"{System.IO.Directory.GetCurrentDirectory()}/wwwroot/images/{fileName}";
+            Log(path);
+            await using FileStream fs = new(path, FileMode.Create);
+            await file.OpenReadStream(maxFileSize).CopyToAsync(fs);
+            if (_workerRequest != null)
+            {
+                _workerRequest.ImagePath = fileName;
+                Log("_workerRequest.ImagePath" + _workerRequest.ImagePath);
+            }
+        }
+        catch(Exception ex)
+        {
+            Log(ex.Message);
+            if(ex.Source!=null)
+                Log(ex.Source);
+            if (ex.InnerException != null)
+                Log(ex.InnerException.Message);
+        }
+    }
+
+    private void Log(string message)
+    {
+        StreamWriter sw = new StreamWriter("log.txt", true);
+        sw.WriteLine(message);
+        sw.Close();
+    }
+
+    private void Cancel()
+    {
+        MudDialog.Cancel();
+    }
+    private async Task Save()
+    {
+        if (_workerRequest != null)
+        {
+            try
+            {
+                if (clRef != null)
+                {
+                    _workerRequest.Cards = clRef.Cards;
+                }
+                await _workerRequest.ValidateAndThrow(DbContext);
+
+                if (_workerRequest.DateBlock != null && _timeBlock != null)
+                {
+                    var notNullable = (TimeSpan)_timeBlock;
+                    _workerRequest.DateBlock = _workerRequest.DateBlock.Value.Date.Add(notNullable);
+                }
+                await _workerRequest.SendToApiAsync(ApiProvider);
+                MudDialog.Close(DialogResult.Ok(Worker.Id));
+            }
+            catch (ValidationException ex)
+            {
+                _validationException = ex;
+            }
+            catch (Exception)
+            {
+
+            }
+        }
+    }
+    private async Task Delete()
+    {
+        var parameters = new DialogParameters<DeleteDialog>();
+        parameters.Add(x => x.ContentText, "Вы действительно хотите удалить этого сотрудника?");
+        var options = new DialogOptions() { CloseButton = true, MaxWidth = MaxWidth.ExtraSmall };
+        var dialog = await DialogService.ShowAsync<DeleteDialog>("Удаление", parameters, options);
+        var result = await dialog.Result;
+        if (!result.Canceled && _workerRequest != null && _workerRequest.Id != null)
+        {
+            var deleteRequest = new DeleteWorkerRequest() { Id = _workerRequest.Id };
+            await deleteRequest.SendToApiAsync(ApiProvider);
+            MudDialog.Close(DialogResult.Ok(Worker.Id));
+        }
+    }
+    private void DeleteFile()
+    {
+        if (_workerRequest != null)
+            _workerRequest.ImagePath = string.Empty;
+    }
+}

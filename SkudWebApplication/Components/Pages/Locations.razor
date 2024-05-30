@@ -1,0 +1,80 @@
+﻿@using BlazorBootstrap
+@using Microsoft.AspNetCore.Authorization
+@using SkudWebApplication.Components.Pages.Dialogs
+@using SkudWebApplication.ViewModels;
+@using SkudWebApplication.Services.Interfaces
+@using SortDirection = BlazorBootstrap.SortDirection;
+@using FilterOperator = BlazorBootstrap.FilterOperator;
+@page "/locations"
+@rendermode InteractiveServer
+
+<PageTitle>Места прохода</PageTitle>
+
+<MudDataGrid T="Location" ServerData="DataProvider" @ref="_dataGrid" ColumnsPanelReordering="true"
+             MultiSelection="true" Filterable="false" DragDropColumnReordering="true"
+             Hideable="true" Striped="true" ColumnResizeMode="ResizeMode.Column"
+             FilterMode="DataGridFilterMode.Simple" FilterCaseSensitivity="DataGridFilterCaseSensitivity.CaseInsensitive" ShowMenuIcon="true">
+    <ToolBarContent>
+        <MudStack Spacing="2" Row="true">
+            <MudIconButton Icon="@Icons.Material.Outlined.Refresh" Size="MudBlazor.Size.Medium" OnClick="RefreshAsync" />
+        </MudStack>
+        <MudSpacer />
+        <MudText Typo="Typo.h6">Места прохода</MudText>
+        <MudSpacer />
+    </ToolBarContent>
+    <Columns>
+        <TemplateColumn Filterable="false" Sortable="false" StickyLeft="true">
+            <HeaderTemplate>
+                <MudIconButton Icon="@Icons.Material.Outlined.Add" Size="MudBlazor.Size.Medium" OnClick="AddAsync" />
+            </HeaderTemplate>
+            <CellTemplate>
+                <MudIconButton Size="@MudBlazor.Size.Small" Icon="@Icons.Material.Outlined.Edit" OnClick="() => EditAsync(context)" />
+            </CellTemplate>
+        </TemplateColumn>
+        <PropertyColumn Property="x => x.Id" Title="Id" Filterable="false" Sortable="true" />
+        <PropertyColumn Property="x => x.Name" Title="Название" Filterable="false" Sortable="true" />
+        <PropertyColumn Property="x => x.Description" Title="Описание" Filterable="false" Sortable="true" />
+        <PropertyColumn Property="x => x.ControllerId" Title="Id контроллера" Filterable="false" Sortable="true" />
+        <PropertyColumn Property="x => x.ControllerSn" Title="Серийный номер" Filterable="false" Sortable="true" />
+        <PropertyColumn Property="x => x.ControllerIp" Title="Ip адрес" Filterable="false" Sortable="true" />
+    </Columns>
+    <PagerContent>
+        <MudDataGridPager T="Location" RowsPerPageString="Строк на странице:" InfoFormat="{first_item}-{last_item} из {all_items}"/>
+    </PagerContent>
+</MudDataGrid>
+
+@code {
+    [Inject] public required ILocationService LocationService { get; set; }
+    [Inject] protected IDialogService DialogService { get; set; } = default!;
+
+    private MudDataGrid<Location>? _dataGrid;
+
+    private async Task AddAsync()
+    {
+        var parameters = new DialogParameters<EditLocationDialog> { { x => x.Location, new Location() }, { x => x.Title, "Создание" } };
+        var dialog = await DialogService.ShowAsync<EditLocationDialog>("Создание", parameters);
+        var result = await dialog.Result;
+        if (!result.Canceled)
+            await RefreshAsync();
+    }
+
+    private async Task EditAsync(CellContext<Location> context)
+    {
+        var parameters = new DialogParameters<EditLocationDialog> { { x => x.Location, context.Item }, { x => x.Title, "Редактирование" } };
+        var dialog = await DialogService.ShowAsync<EditLocationDialog>("Редактирование", parameters);
+        var result = await dialog.Result;
+        if (!result.Canceled)
+            await RefreshAsync();
+    }
+
+    private async Task RefreshAsync()
+    {
+        if (_dataGrid is not null)
+            await _dataGrid.ReloadServerData();
+    }
+
+    private async Task<GridData<Location>> DataProvider(MudBlazor.GridState<Location> state)
+    {
+        return await LocationService.GetGridData(state.SortDefinitions, state.FilterDefinitions, state.Page, state.PageSize); ;
+    }
+}

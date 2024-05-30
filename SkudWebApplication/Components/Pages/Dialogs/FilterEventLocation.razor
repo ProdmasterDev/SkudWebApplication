@@ -1,0 +1,53 @@
+﻿@using SkudWebApplication.ViewModels
+@rendermode InteractiveServer
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            @Title
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        @if (_controllerLocationsFilter != null)
+        {
+            @foreach (var select in _controllerLocationsFilter.ControllerLocationSelect)
+            {
+                <MudCheckBox @bind-Value="select.Selected" Disabled="false">@select.Location.Name</MudCheckBox>
+            }
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Отмена</MudButton>
+        <MudButton Color="Color.Primary" OnClick="Save">Сохранить</MudButton>
+    </DialogActions>
+</MudDialog>
+@code {
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public string Title { get; set; } = string.Empty;
+    [Parameter] public AdditionalFiltersEvent? Filters { get; set; }
+    private ControllerLocationsFilter? _controllerLocationsFilter;
+
+    protected override void OnInitialized()
+    {
+        if (Filters != null)
+        {
+            _controllerLocationsFilter = new ControllerLocationsFilter();
+            var list = new List<ControllerLocationSelect>();
+            foreach (var select in Filters.ControllerLocationsFilter.ControllerLocationSelect)
+            {
+                list.Add(new ControllerLocationSelect() { Location = select.Location, Selected = select.Selected });
+            }
+            _controllerLocationsFilter.ControllerLocationSelect = list;
+        }
+    }
+
+    private void Cancel()
+    {
+        MudDialog.Cancel();
+    }
+
+    private void Save()
+    {
+        MudDialog.Close(DialogResult.Ok(_controllerLocationsFilter));
+    }
+}

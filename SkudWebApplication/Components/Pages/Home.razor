@@ -1,0 +1,11 @@
+﻿@page "/"
+@rendermode InteractiveServer
+
+<PageTitle>Продмастер СКУД</PageTitle>
+
+@code{
+    protected override void OnInitialized()
+    {
+        NavManager.NavigateTo("/events", forceLoad: true);
+    }
+}

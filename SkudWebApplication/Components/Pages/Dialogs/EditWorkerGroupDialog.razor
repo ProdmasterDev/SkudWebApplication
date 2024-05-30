@@ -1,0 +1,112 @@
+﻿@using FluentValidation
+@using RestEase
+@using SkudWebApplication.ApiInterfaces
+@using SkudWebApplication.Db
+@using SkudWebApplication.Requests.WorkerGroup
+@using SkudWebApplication.Services.Interfaces
+@using SkudWebApplication.ViewModels;
+@using SkudWebApplication.Requests;
+@using SkudWebApplication.Components.Layout.DroufLayouts;
+@rendermode InteractiveServer
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            @Title
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        @if(_workerGroupRequest is not null)
+        {
+            @if (_workerGroupRequest.Id is not null)
+            {
+                <MudTextField Value="@_workerGroupRequest.Id.ToString()" Label="Id" ReadOnly="true" Disabled="true" />
+            }
+            <MudTextField @bind-Value="@_workerGroupRequest.Name" Label="Название" ReadOnly="false" />
+
+            <AccessLayout Accesses="_workerGroupRequest.Accesses" AccessExpanded="@_accessesExpanded" ButtonText="Доступ"></AccessLayout>
+        }
+
+        @if (_validationException is not null)
+        {
+            <MudStack Class="mt-4">
+                @foreach (var error in _validationException.Errors)
+                {
+                    <MudAlert Severity="MudBlazor.Severity.Error" Variant="Variant.Outlined" Dense="true">@error.ErrorMessage</MudAlert>
+                }
+            </MudStack>
+        }
+        @if (_workerGroupRequest is not null && _workerGroupRequest.Id is not null)
+        {
+            <MudButton Class="mt-5" Color="Color.Error" OnClick="Delete">Удалить</MudButton>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Отмена</MudButton>
+        <MudButton Color="Color.Primary" OnClick="Save">Сохранить</MudButton>
+    </DialogActions>
+</MudDialog>
+@code {
+    [Inject] public required WebAppContext DbContext { get; set; }
+    [Inject] public required IWorkerGroupService WorkerGroupService { get; set; }
+    [Inject] public required IApiProvider ApiProvider { get; set; }
+    [Inject] protected IDialogService DialogService { get; set; } = default!;
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public string Title { get; set; } = string.Empty;
+    [Parameter] public WorkerGroup WorkerGroup { get; set; } = new WorkerGroup();
+    private WorkerGroupRequest? _workerGroupRequest;
+    private bool _accessesExpanded = true;
+    private ValidationException? _validationException;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (WorkerGroup.Id == 0)
+        {
+            _workerGroupRequest = await WorkerGroupService.GetAddRequest();
+        }
+        else
+        {
+            _workerGroupRequest = await WorkerGroupService.GetEditRequest(WorkerGroup);
+        }
+    }
+
+    private void Cancel()
+    {
+        MudDialog.Cancel();
+    }
+
+    private async Task Save()
+    {
+        if (_workerGroupRequest != null)
+        {
+            try
+            {
+                await _workerGroupRequest.ValidateAndThrow(DbContext);
+                await _workerGroupRequest.SendToApiAsync(ApiProvider);
+                MudDialog.Close(DialogResult.Ok(WorkerGroup.Id));
+            }
+            catch (ValidationException ex)
+            {
+                _validationException = ex;
+            }
+            catch (Exception)
+            {
+                
+            }
+        }
+    }
+    private async Task Delete()
+    {
+        var parameters = new DialogParameters<DeleteDialog>();
+        parameters.Add(x => x.ContentText, "Вы действительно хотите удалить это подразделение?");
+        var options = new DialogOptions() { CloseButton = true, MaxWidth = MaxWidth.ExtraSmall };
+        var dialog = await DialogService.ShowAsync<DeleteDialog>("Удаление", parameters, options);
+        var result = await dialog.Result;
+        if (!result.Canceled && _workerGroupRequest != null && _workerGroupRequest.Id != null)
+        {
+            var deleteRequest = new DeleteWorkerGroupRequest() { Id = _workerGroupRequest.Id };
+            await deleteRequest.SendToApiAsync(ApiProvider);
+            MudDialog.Close(DialogResult.Ok(WorkerGroup.Id));
+        }
+    }
+}

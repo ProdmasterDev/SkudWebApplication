@@ -1,0 +1,77 @@
+﻿@page "/workergroups"
+@using Microsoft.AspNetCore.Authorization
+@using SkudWebApplication.Components.Pages.Dialogs
+@using SkudWebApplication.Services.Interfaces
+@using SkudWebApplication.ViewModels
+@using SortDirection = BlazorBootstrap.SortDirection;
+@using FilterOperator = BlazorBootstrap.FilterOperator;
+@rendermode InteractiveServer
+
+<PageTitle>Подразделения</PageTitle>
+
+<MudDataGrid T="WorkerGroup" ServerData="DataProvider" @ref="_dataGrid" ColumnsPanelReordering="true"
+             MultiSelection="true" Filterable="true"
+             Hideable="true" Striped="true" ColumnResizeMode="ResizeMode.Column"
+             FilterMode="DataGridFilterMode.Simple" FilterCaseSensitivity="DataGridFilterCaseSensitivity.CaseInsensitive" ShowMenuIcon="true">
+    <ToolBarContent>
+        <MudStack Spacing="2" Row="true">
+            <MudIconButton Icon="@Icons.Material.Outlined.Refresh" Size="MudBlazor.Size.Medium" OnClick="RefreshAsync" />
+        </MudStack>
+        <MudSpacer />
+        <MudText Typo="Typo.h6">Подразделения</MudText>
+        <MudSpacer />
+    </ToolBarContent>
+    <Columns>
+        <TemplateColumn Filterable="false" Sortable="false" StickyLeft="true">
+            <HeaderTemplate>
+                <MudIconButton Icon="@Icons.Material.Outlined.Add" Size="MudBlazor.Size.Medium" OnClick="AddAsync" />
+            </HeaderTemplate>
+            <CellTemplate>
+                <MudIconButton Size="@MudBlazor.Size.Small" Icon="@Icons.Material.Outlined.Edit" OnClick="() => EditAsync(context)" />
+            </CellTemplate>
+        </TemplateColumn>
+        <PropertyColumn Property="x => x.Id" Title="Id" Filterable="false" Sortable="true" />
+        <PropertyColumn Property="x => x.Name" Title="Название" Filterable="true" Sortable="true" />
+    </Columns>
+    <PagerContent>
+        <MudDataGridPager T="WorkerGroup" RowsPerPageString="Строк на странице:" InfoFormat="{first_item}-{last_item} из {all_items}"/>
+    </PagerContent>
+</MudDataGrid>
+
+@code {
+    [Inject] public required IWorkerGroupService WorkerGroupService { get; set; }
+    [Inject] protected IDialogService DialogService { get; set; } = default!;
+
+    private MudDataGrid<WorkerGroup>? _dataGrid;
+
+    private async Task AddAsync()
+    {
+        if (_dataGrid is null)
+            return;
+        var parameters = new DialogParameters<EditWorkerGroupDialog> { { x => x.WorkerGroup, new WorkerGroup() }, { x => x.Title, "Создание" } };
+        var dialog = await DialogService.ShowAsync<EditWorkerGroupDialog>("Создание", parameters);
+        var result = await dialog.Result;
+        if (!result.Canceled)
+            await RefreshAsync();
+    }
+
+    private async Task EditAsync(CellContext<WorkerGroup> context)
+    {
+        var parameters = new DialogParameters<EditWorkerGroupDialog> { { x => x.WorkerGroup, context.Item }, { x => x.Title, "Редактирование" } };
+        var dialog = await DialogService.ShowAsync<EditWorkerGroupDialog>("Редактирование", parameters);
+        var result = await dialog.Result;
+        if (!result.Canceled)
+            await RefreshAsync();
+    }
+
+    private async Task RefreshAsync()
+    {
+        if (_dataGrid is not null)
+            await _dataGrid.ReloadServerData();
+    }
+
+    private async Task<GridData<WorkerGroup>> DataProvider(MudBlazor.GridState<WorkerGroup> state)
+    {
+        return await WorkerGroupService.GetGridData(state.SortDefinitions, state.FilterDefinitions, state.Page, state.PageSize);
+    }
+}

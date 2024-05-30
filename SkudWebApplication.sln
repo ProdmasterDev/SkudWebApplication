@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.8.34309.116
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SkudWebApplication", "SkudWebApplication\SkudWebApplication.csproj", "{34A5CE1B-3A03-429A-9E25-A7D38908EDED}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ControllerDomain", "..\ControllerWebAPI\ControllerDomain\ControllerDomain.csproj", "{E320E9B9-27D7-4B94-A150-0E647AD19A01}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{34A5CE1B-3A03-429A-9E25-A7D38908EDED}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{34A5CE1B-3A03-429A-9E25-A7D38908EDED}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{34A5CE1B-3A03-429A-9E25-A7D38908EDED}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{34A5CE1B-3A03-429A-9E25-A7D38908EDED}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E320E9B9-27D7-4B94-A150-0E647AD19A01}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E320E9B9-27D7-4B94-A150-0E647AD19A01}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E320E9B9-27D7-4B94-A150-0E647AD19A01}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E320E9B9-27D7-4B94-A150-0E647AD19A01}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {100EC31E-B5B8-4EE2-B26A-4C13E2BC6EE5}
+	EndGlobalSection
+EndGlobal

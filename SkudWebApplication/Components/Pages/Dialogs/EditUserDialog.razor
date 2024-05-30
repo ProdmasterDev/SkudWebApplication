@@ -1,0 +1,110 @@
+﻿@using FluentValidation
+@using RestEase
+@using SkudWebApplication.ApiInterfaces
+@using SkudWebApplication.Db
+@using SkudWebApplication.Requests.User
+@using SkudWebApplication.Requests.User
+@using SkudWebApplication.Services.Interfaces
+@using SkudWebApplication.ViewModels;
+@using SkudWebApplication.Requests;
+@using SkudWebApplication.Components.Layout.DroufLayouts;
+@rendermode InteractiveServer
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            @Title
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        @if (_userRequest is not null)
+        {
+            @if (_userRequest.Id is not null)
+            {
+                <MudTextField Value="@_userRequest.Id.ToString()" Label="Id" ReadOnly="true" Disabled="true" />
+            }
+            <MudTextField @bind-Value="@_userRequest.Login" Label="Логин" ReadOnly="false" />
+            <MudTextField @bind-Value="@_userRequest.Password" Label="Пароль" ReadOnly="false" InputType="InputType.Password"/>
+        }
+        @if (_validationException is not null)
+        {
+            <MudStack Class="mt-4">
+                @foreach (var error in _validationException.Errors)
+                {
+                    <MudAlert Severity="MudBlazor.Severity.Error" Variant="Variant.Outlined" Dense="true">@error.ErrorMessage</MudAlert>
+                }
+            </MudStack>
+        }
+        @if (_userRequest is not null && _userRequest.Id is not null)
+        {
+            <MudButton Class="mt-5" Color="Color.Error" OnClick="Delete">Удалить</MudButton>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Отмена</MudButton>
+        <MudButton Color="Color.Primary" OnClick="Save">Сохранить</MudButton>
+    </DialogActions>
+</MudDialog>
+@code {
+    [Inject] public required WebAppContext DbContext { get; set; }
+    [Inject] public required IUserService UserService { get; set; }
+    [Inject] public required IApiProvider ApiProvider { get; set; }
+    [Inject] protected IDialogService DialogService { get; set; } = default!;
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public string Title { get; set; } = string.Empty;
+    [Parameter] public User User { get; set; } = new User();
+    private UserRequest? _userRequest;
+    private ValidationException? _validationException;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (User.Id == 0)
+        {
+            _userRequest = await UserService.GetAddRequest();
+        }
+        else
+        {
+            _userRequest = await UserService.GetEditRequest(User);
+        }
+    }
+
+    private void Cancel()
+    {
+        MudDialog.Cancel();
+    }
+
+    private async Task Save()
+    {
+        if (_userRequest != null)
+        {
+            try
+            {
+                await _userRequest.ValidateAndThrow(DbContext);
+                await _userRequest.SendToApiAsync(ApiProvider);
+                MudDialog.Close(DialogResult.Ok(User.Id));
+            }
+            catch (ValidationException ex)
+            {
+                _validationException = ex;
+            }
+            catch (Exception)
+            {
+
+            }
+        }
+    }
+    private async Task Delete()
+    {
+        var parameters = new DialogParameters<DeleteDialog>();
+        parameters.Add(x => x.ContentText, "Вы действительно хотите удалить этого пользователя?");
+        var options = new DialogOptions() { CloseButton = true, MaxWidth = MaxWidth.ExtraSmall };
+        var dialog = await DialogService.ShowAsync<DeleteDialog>("Удаление", parameters, options);
+        var result = await dialog.Result;
+        if (!result.Canceled && _userRequest != null && _userRequest.Id != null)
+        {
+            var deleteRequest = new DeleteUserRequest() { Id = _userRequest.Id };
+            await deleteRequest.SendToApiAsync(ApiProvider);
+            MudDialog.Close(DialogResult.Ok(User.Id));
+        }
+    }
+}
