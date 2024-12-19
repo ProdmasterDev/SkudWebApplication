@@ -39,6 +39,16 @@ namespace SkudWebApplication.Services.Classes
                     })
                     .AsNoTracking()
                     .ToListAsync(),
+                WorkerAccessGroup = await _dbContext
+                    .Set<DB.AccessGroup>()
+                    .Select(x => new AccessGroupWorker()
+                    {
+                        AccessGroupId = x.Id,
+                        isActive = false,
+                        AccessGroupName = x.Name,
+                    })
+                    .AsNoTracking()
+                    .ToListAsync(),
             };
         }
 
@@ -82,12 +92,15 @@ namespace SkudWebApplication.Services.Classes
                     .ThenInclude(x => x.ControllerLocation)
                 .Include(x => x.Group)
                 .Include(x => x.AccessMethod)
+                .Include(x => x.WorkerAccessGroup)
+                    .ThenInclude(x => x.AccessGroup)
                 .AsNoTracking()
                 .FirstOrDefaultAsync(x => x.Id == viewModel.Id);
             if (entity == null)
             {
                 throw new KeyNotFoundException("Группа доступа не найдена!");
             }
+
             var request = _mapper.Map<EditWorkerRequest>(entity);
             var availableAccesses = await _dbContext
             .Set<DB.ControllerLocation>()
@@ -100,8 +113,20 @@ namespace SkudWebApplication.Services.Classes
             })
             .AsNoTracking()
             .ToListAsync();
+            var avaibleAccessGroup = await _dbContext
+            .Set<DB.AccessGroup>()
+            .Select(x => new AccessGroupWorker()
+            {
+                AccessGroupId = x.Id,
+                isActive = false,
+                AccessGroupName = x.Name,
+            })
+            .AsNoTracking()
+            .ToListAsync();
+            var toAddGroups = avaibleAccessGroup.Except(request.WorkerAccessGroup, new AccessGroupComparer()).ToList();
             var toAdd = availableAccesses.Except(request.Accesses, new AccessComparer()).ToList();
             request.Accesses = request.Accesses.Union(toAdd);
+            request.WorkerAccessGroup = request.WorkerAccessGroup.Union(toAddGroups);
             return request;
 
         }

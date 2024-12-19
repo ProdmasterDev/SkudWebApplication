@@ -44,6 +44,8 @@ namespace SkudWebApplication.Controllers
             try
             {
                 await _mediator.Send(request);
+                //var WorkerAccessGRequest = _mapper.Map<RefreshAccessGroupWorkerRequest>(request);
+                //await _mediator.Send(WorkerAccessGRequest);
                 var refreshAccessesRequest = _mapper.Map<RefreshAccessesWorkerRequest>(request);
                 await _mediator.Send(refreshAccessesRequest);
                 return Ok();

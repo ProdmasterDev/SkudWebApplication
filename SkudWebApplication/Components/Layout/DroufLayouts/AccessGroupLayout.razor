@@ -1,0 +1,53 @@
+﻿@using SkudWebApplication.Requests
+<MudPaper Class="pa-4 mt-5">
+    <MudStack Spacing="2">
+        <MudButton OnClick="OnExpandCollapseClick">@ButtonText</MudButton>
+        <MudDivider />
+        <MudCollapse Expanded="AccessGroupExpanded">
+            <MudList Clickable="false">
+                @foreach (var access in AccessGroup)
+                {
+                    <MudListItem>
+                        @access.AccessGroupName
+                        <MudStack Row="true">
+                            <MudCheckBox @onclick="() => OnCheckBoxClick(access,CheckBoxType.isActive)" @bind-Value="access.isActive" Label="Выбрано" Color="Color.Primary"></MudCheckBox>
+                        </MudStack>
+                    </MudListItem>
+                }
+            </MudList>
+        </MudCollapse>
+    </MudStack>
+</MudPaper>
+
+@code {
+    [Parameter] public required IEnumerable<AccessGroupWorker> AccessGroup { get; set; }
+    [Parameter] public string ButtonText { get; set; } = "Группы доступа";
+    [Parameter] public bool AccessGroupExpanded { get; set; } = false;
+
+    private enum CheckBoxType
+    {
+        isActive
+    }
+
+    private void OnExpandCollapseClick()
+    {
+        AccessGroupExpanded = !AccessGroupExpanded;
+    }
+
+    private void OnBothClick(AccessRequest access)
+    {
+        if (access.Enterance == access.Exit)
+        {
+            access.Enterance = !access.Both;
+            access.Exit = !access.Both;
+            return;
+        }
+        access.Enterance = true;
+        access.Exit = true;
+    }
+
+    private void OnCheckBoxClick(AccessGroupWorker access, CheckBoxType checkBoxType)
+    {
+        access.isActive = !access.isActive;
+    }
+}

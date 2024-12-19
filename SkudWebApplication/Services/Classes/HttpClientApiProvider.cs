@@ -12,7 +12,8 @@ namespace SkudWebApplication.Services.Classes
         public HttpClientApiProvider(IApiDomainsManager apiDomainsManager) 
         {
             var directory = System.IO.Directory.GetCurrentDirectory();
-            if (directory.StartsWith("D:\\Repos\\"))
+            //if (directory.StartsWith("D:\\Repos\\"))
+            if (directory.StartsWith("C:\\Users\\"))
             {
                 _apiDomain = apiDomainsManager.GetDomain("own-local");
             }

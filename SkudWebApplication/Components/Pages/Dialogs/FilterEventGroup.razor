@@ -50,4 +50,13 @@
     {
         MudDialog.Close(DialogResult.Ok(_workerGroupFilter));
     }
+
+    private void SearchGroup(string value)
+    {
+        if (_workerGroupFilter != null && string.IsNullOrEmpty(value))
+        {
+            _workerGroupFilter.StringFilter = string.Empty;
+            _workerGroupFilter.StringFilter = value;
+        }
+    }
 }

@@ -21,6 +21,8 @@ namespace SkudWebApplication.Db
         public DbSet<Worker> Workers { get; set; }
         public DbSet<WorkerGroup> WorkerGroups { get; set; }
         public DbSet<AccessMethod> AccessMethods { get; set; }
+        public DbSet<WorkerAccessGroup> WorkerAccessGroup { get; set; }
+        public DbSet<WorkerGroupAccess> WorkerGroupAccess { get; set; }
         public WebAppContext(DbContextOptions<WebAppContext> options) : base(options)
         {
         }
@@ -103,6 +105,32 @@ namespace SkudWebApplication.Db
                 .HasMany(x => x.GroupAccess)
                 .WithOne(x => x.Group)
                 .HasForeignKey(x => x.GroupId)
+                .HasPrincipalKey(x => x.Id);
+            modelBuilder
+                .Entity<Worker>()
+                .HasMany(w => w.WorkerAccessGroup)
+                .WithOne(wag => wag.Worker)
+                .HasForeignKey(wag => wag.WorkerId)
+                .HasPrincipalKey(x => x.Id);
+
+            modelBuilder
+                .Entity<AccessGroup>()
+                .HasMany(ag => ag.WorkerAccessGroups)
+                .WithOne(wag => wag.AccessGroup)
+                .HasForeignKey(wag => wag.AccessGroupId)
+                .HasPrincipalKey(x => x.Id);
+            modelBuilder
+                .Entity<WorkerGroup>()
+                .HasMany(w => w.WorkerGroupAccess)
+                .WithOne(wag => wag.WorkerGroup)
+                .HasForeignKey(wag => wag.WorkerGroupId)
+                .HasPrincipalKey(x => x.Id);
+
+            modelBuilder
+                .Entity<AccessGroup>()
+                .HasMany(ag => ag.WorkerGroupAccess)
+                .WithOne(wag => wag.AccessGroup)
+                .HasForeignKey(wag => wag.AccessGroupId)
                 .HasPrincipalKey(x => x.Id);
         }
     }

@@ -12,6 +12,7 @@ namespace SkudWebApplication.Requests.WorkerGroup
         [DisplayName("Название")]
         public string Name { get; set; } = string.Empty;
         public IEnumerable<AccessRequest> Accesses { get; set; } = new List<AccessRequest>();
+        public IEnumerable<AccessGroupWorker> WorkerGroupAccess { get; set; } = new List<AccessGroupWorker>();
         protected string _apiMethod = $"{nameof(WorkerGroupRequest).Replace("Request",string.Empty)}Api";
         public abstract Task SendToApiAsync(IApiProvider apiProvider);
         public abstract Task ValidateAndThrow(WebAppContext dbContext);

@@ -32,7 +32,17 @@ namespace SkudWebApplication.Services.Classes
                         LocationName = x.Name,
                     })
                     .AsNoTracking()
-                    .ToListAsync()
+                    .ToListAsync(),
+                WorkerGroupAccess = await _dbContext
+                    .Set<DB.AccessGroup>()
+                    .Select(x => new AccessGroupWorker()
+                    {
+                        AccessGroupId = x.Id,
+                        isActive = false,
+                        AccessGroupName = x.Name,
+                    })
+                    .AsNoTracking()
+                    .ToListAsync(),
             };
         }
         public async Task<EditWorkerGroupRequest> GetEditRequest(VM.WorkerGroup viewModel)
@@ -40,6 +50,8 @@ namespace SkudWebApplication.Services.Classes
             var entity = await _dbContext.Set<DB.WorkerGroup>()
                 .Include(x => x.GroupAccess)
                     .ThenInclude(x => x.ControllerLocation)
+                .Include(x => x.WorkerGroupAccess)
+                    .ThenInclude(x => x.AccessGroup)
                 .AsNoTracking().FirstOrDefaultAsync(x => x.Id == viewModel.Id);
             if (entity == null)
             {
@@ -47,7 +59,7 @@ namespace SkudWebApplication.Services.Classes
             }
             var request = _mapper.Map<DB.WorkerGroup, EditWorkerGroupRequest>(entity);
             request.Accesses = _mapper.Map<IEnumerable<DB.GroupAccess>, IEnumerable<AccessRequest>>(entity.GroupAccess);
-
+            request.WorkerGroupAccess = _mapper.Map<IEnumerable<DB.WorkerGroupAccess>, IEnumerable<AccessGroupWorker>>(entity.WorkerGroupAccess);
             var availableAccesses = await _dbContext
             .Set<DB.ControllerLocation>()
             .Select(x => new AccessRequest()
@@ -59,6 +71,18 @@ namespace SkudWebApplication.Services.Classes
             })
             .AsNoTracking()
             .ToListAsync();
+            var avaibleAccessGroup = await _dbContext
+            .Set<DB.AccessGroup>()
+            .Select(x => new AccessGroupWorker()
+            {
+                AccessGroupId = x.Id,
+                isActive = false,
+                AccessGroupName = x.Name,
+            })
+            .AsNoTracking()
+            .ToListAsync();
+            var toAddGroups = avaibleAccessGroup.Except(request.WorkerGroupAccess, new AccessGroupComparer()).ToList();
+            request.WorkerGroupAccess = request.WorkerGroupAccess.Union(toAddGroups);
             var toAdd = availableAccesses.Except(request.Accesses, new AccessComparer()).ToList();
             request.Accesses = request.Accesses.Union(toAdd);
             return request;

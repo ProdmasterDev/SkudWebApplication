@@ -25,6 +25,7 @@
             <MudTextField @bind-Value="@_workerGroupRequest.Name" Label="Название" ReadOnly="false" />
 
             <AccessLayout Accesses="_workerGroupRequest.Accesses" AccessExpanded="@_accessesExpanded" ButtonText="Доступ"></AccessLayout>
+            <AccessGroupLayout AccessGroup="_workerGroupRequest.WorkerGroupAccess" AccessGroupExpanded="@_accessesGroupExpanded" ButtonText="Группы доступа"></AccessGroupLayout>
         }
 
         @if (_validationException is not null)
@@ -56,6 +57,7 @@
     [Parameter] public WorkerGroup WorkerGroup { get; set; } = new WorkerGroup();
     private WorkerGroupRequest? _workerGroupRequest;
     private bool _accessesExpanded = true;
+    private bool _accessesGroupExpanded = false;
     private ValidationException? _validationException;
 
     protected override async Task OnInitializedAsync()

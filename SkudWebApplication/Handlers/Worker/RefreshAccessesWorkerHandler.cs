@@ -2,6 +2,7 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using SkudWebApplication.Db;
+using SkudWebApplication.Requests;
 using SkudWebApplication.Requests.Worker;
 using DB = ControllerDomain.Entities;
 
@@ -30,6 +31,11 @@ namespace SkudWebApplication.Handlers.Worker
                         .ThenInclude(x => x.ControllerLocation)
                             .ThenInclude(x => x.Controller)
                 .Include(x => x.AccessMethod)
+                .Include(x=>x.WorkerAccessGroup)
+                    .ThenInclude(x => x.AccessGroup)
+                        .ThenInclude(x => x.Accesses)
+                            .ThenInclude(x => x.ControllerLocation)
+                                .ThenInclude(x => x.Controller)
                 .FirstOrDefaultAsync(x => x.Id == request.Id);
 
             if (dbWorker == null) { return; }
@@ -45,6 +51,32 @@ namespace SkudWebApplication.Handlers.Worker
             if (dbWorker.AccessMethodId == 2 && dbWorker.Group != null)
             {
                 dbWorker.Group.GroupAccess.ToList().ForEach(x => AddGroupAccessToList(newQuickAccesses, x, string.Empty, dbWorker.DateBlock));
+            }
+            if (dbWorker.AccessMethodId == 3 && dbWorker.WorkerAccessGroup != null)
+            {
+                foreach (var workerAccessGroup in dbWorker.WorkerAccessGroup)
+                {
+                    if (workerAccessGroup.isActive)
+                    {
+                        var accessGroup = workerAccessGroup.AccessGroup.Accesses;
+                        accessGroup.ToList().ForEach(x => AddAccessGroupToList(newQuickAccesses, x, string.Empty, dbWorker.DateBlock));
+                    }
+                }
+
+                //var availableAccesses = await _dbContext
+                //.Set<DB.ControllerLocation>()
+                //.Include(x => x.Controller)
+                //.Select(x => new DB.AccessGroupAccess()
+                //{
+                //    ControllerLocationId = x.Id,
+                //    Enterance = false,
+                //    Exit = false,
+                //    ControllerLocation = x,
+                //})
+                //.AsNoTracking()
+                //.ToListAsync();
+                //List<DB.QuickAccess> oldQuickAccesses = new();
+                //availableAccesses.ToList().ForEach(x => AddAccessGroupToList(oldQuickAccesses, x, string.Empty, dbWorker.DateBlock));
             }
 
             var quickAccessesRequest = _dbContext.Set<DB.QuickAccess>();
@@ -109,6 +141,22 @@ namespace SkudWebApplication.Handlers.Worker
                     if(dateBlock != null)
                         dateBlock = dateBlock.Value.ToUniversalTime();
                     accesses.Add(_mapper.Map(access, new DB.QuickAccess() { Id = default, Reader = readerNumber, Card = card, DateBlock = dateBlock }));
+                }
+            }
+        }
+        private void AddAccessGroupToList(List<DB.QuickAccess> accesses, DB.AccessGroupAccess access, string card, DateTime? dateBlock)
+        {
+            if (access.ControllerLocation != null && access.ControllerLocation.Controller != null)
+            {
+                for (var readerNumber = 1; readerNumber <= 2; readerNumber++)
+                {
+                    if (dateBlock != null)
+                        dateBlock = dateBlock.Value.ToUniversalTime();
+                    var oldQuickAccess = accesses.FirstOrDefault(x => x.Sn == access.ControllerLocation.Controller.Sn && x.Reader == readerNumber);
+                    if (oldQuickAccess == null || oldQuickAccess.Granted == 0)
+                    { 
+                        accesses.Add(_mapper.Map(access, new DB.QuickAccess() { Id = default, Reader = readerNumber, Card = card, DateBlock = dateBlock }));
+                    }
                 }
             }
         }

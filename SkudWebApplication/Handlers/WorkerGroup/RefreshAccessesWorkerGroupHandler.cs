@@ -1,8 +1,10 @@
 ﻿using AutoMapper;
+using ControllerDomain.Entities;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using SkudWebApplication.Db;
 using SkudWebApplication.Requests.WorkerGroup;
+using SkudWebApplication.ViewModels;
 using DB = ControllerDomain.Entities;
 
 namespace SkudWebApplication.Handlers.WorkerGroup
@@ -35,12 +37,30 @@ namespace SkudWebApplication.Handlers.WorkerGroup
                         .ThenInclude(x => x.Controller)
                 .AsNoTracking()
                 .FirstOrDefaultAsync(x => x.Id == request.Id);
+            var workerGroupAccess = await _dbContext
+                .Set<DB.WorkerGroupAccess>()
+                .Include(x => x.AccessGroup)
+                    .ThenInclude(x => x.Accesses)
+                        .ThenInclude(x => x.ControllerLocation)
+                                .ThenInclude(x => x.Controller)
+                .AsNoTracking()
+                .Where(x => x.WorkerGroupId == request.Id)
+                .ToListAsync(cancellationToken);
+
 
             List<DB.QuickAccess> newQuickAccesses = [];
 
-            if (workerGroup != null)
+            //if (workerGroup != null)
+            //{
+            //    workerGroup.GroupAccess.ToList().ForEach(x => AddGroupAccessToList(newQuickAccesses, x));
+            //}
+            foreach (var groupsAccess in workerGroupAccess)
             {
-                workerGroup.GroupAccess.ToList().ForEach(x => AddGroupAccessToList(newQuickAccesses, x));
+                if (groupsAccess.isActive)
+                {
+                    var accessGroup = groupsAccess.AccessGroup.Accesses;
+                    accessGroup.ToList().ForEach(x => AddAccessGroupToList(newQuickAccesses, x));
+                }
             }
 
             var quickAccessesRequest = _dbContext.Set<DB.QuickAccess>();
@@ -83,5 +103,20 @@ namespace SkudWebApplication.Handlers.WorkerGroup
                 }
             }
         }
+        private void AddAccessGroupToList(List<DB.QuickAccess> accesses, DB.AccessGroupAccess access)
+        {
+            if (access.ControllerLocation != null && access.ControllerLocation.Controller != null)
+            {
+                for (var readerNumber = 1; readerNumber <= 2; readerNumber++)
+                {
+                    var oldQuickAccess = accesses.FirstOrDefault(x => x.Sn == access.ControllerLocation.Controller.Sn && x.Reader == readerNumber);
+                    if (oldQuickAccess == null || oldQuickAccess.Granted == 0) 
+                    {
+                        accesses.Add(_mapper.Map(access, new DB.QuickAccess() { Id = default, Reader = readerNumber }));
+                    }
+                }
+            }
+        }
     }
 }
+

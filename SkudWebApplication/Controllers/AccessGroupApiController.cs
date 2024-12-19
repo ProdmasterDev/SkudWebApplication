@@ -3,7 +3,9 @@ using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
+using SkudWebApplication.Handlers.AccessGroup;
 using SkudWebApplication.Requests.AccessGroup;
+using SkudWebApplication.Requests.WorkerGroup;
 
 namespace SkudWebApplication.Controllers
 {
@@ -39,6 +41,8 @@ namespace SkudWebApplication.Controllers
             try
             {
                 await _mediator.Send(request);
+                var refreshAccessesRequest = new RefreshQuickAccessesRequest() { Id = request.Id };
+                await _mediator.Send(refreshAccessesRequest);
                 return Ok();
             }
             catch (ValidationException ex)

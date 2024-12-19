@@ -19,6 +19,7 @@ namespace SkudWebApplication.Requests.Worker
         public DateTime? DateBlock {  get; set; }
         public IEnumerable<AccessRequest> Accesses { get; set; } = new List<AccessRequest>();
         public IEnumerable<WorkerCard> Cards { get; set; } = new List<WorkerCard>();
+        public IEnumerable<AccessGroupWorker> WorkerAccessGroup { get; set; } = new List<AccessGroupWorker>();
         public WorkerAccessMethod? AccessMethod { get; set; }
         public WorkerGroup? Group { get; set; }
         protected string _apiMethod = $"{nameof(WorkerRequest).Replace("Request", string.Empty)}Api";
@@ -42,4 +43,5 @@ namespace SkudWebApplication.Requests.Worker
         public int Id { get; set; }
         public string Name { set; get; } = string.Empty;
     }
+
 }

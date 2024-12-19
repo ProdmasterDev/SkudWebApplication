@@ -100,6 +100,12 @@ namespace SkudWebApplication
             CreateMap<DB.Access, AccessRequest>()
                 .ForMember(x => x.LocationName, x => x.MapFrom(y => y.ControllerLocation!.Name))
                 .ForMember(x => x.Both, x => x.MapFrom(y => y.Enterance && y.Exit));
+            CreateMap<DB.WorkerAccessGroup, AccessGroupWorker>()
+                .ForMember(x => x.AccessGroupName, x => x.MapFrom(y => y.AccessGroup!.Name));
+            CreateMap<AccessGroupWorker, DB.WorkerGroupAccess>();
+            CreateMap<DB.WorkerGroupAccess, AccessGroupWorker>()
+                .ForMember(x => x.AccessGroupName, x => x.MapFrom(y => y.AccessGroup!.Name));
+            CreateMap<AccessGroupWorker, DB.WorkerAccessGroup>();
             CreateMap<AccessRequest, DB.Access>();
             CreateMap<DB.Card, WorkerCard>().ReverseMap();
             CreateMap<DB.WorkerGroup, Requests.Worker.WorkerGroup>().ReverseMap();
@@ -109,12 +115,18 @@ namespace SkudWebApplication
 
             CreateMap<EditWorkerRequest, RefreshAccessesWorkerRequest>();
             CreateMap<AddWorkerRequest, RefreshAccessesWorkerRequest>();
-
+           // CreateMap<EditWorkerRequest, RefreshAccessGroupWorkerRequest>();
+           // CreateMap<AddWorkerRequest, RefreshAccessGroupWorkerRequest>();
+            
             CreateMap<DB.Access, DB.QuickAccess>()
                 .ForMember(x => x.Sn, x => x.MapFrom(y => y.ControllerLocation.Controller.Sn))
                 .ForMember(x => x.Granted, x => x.MapFrom((x, y) => ((x.Enterance && y.Reader == 1) || (x.Exit && y.Reader == 2)) ? 1 : 0))
                 .ForMember(x => x.DateBlock, x => x.Ignore());
             CreateMap<DB.GroupAccess, DB.QuickAccess>()
+                .ForMember(x => x.Sn, x => x.MapFrom(y => y.ControllerLocation.Controller.Sn))
+                .ForMember(x => x.Granted, x => x.MapFrom((x, y) => ((x.Enterance && y.Reader == 1) || (x.Exit && y.Reader == 2)) ? 1 : 0))
+                .ForMember(x => x.DateBlock, x => x.Ignore());
+            CreateMap<DB.AccessGroupAccess, DB.QuickAccess>()
                 .ForMember(x => x.Sn, x => x.MapFrom(y => y.ControllerLocation.Controller.Sn))
                 .ForMember(x => x.Granted, x => x.MapFrom((x, y) => ((x.Enterance && y.Reader == 1) || (x.Exit && y.Reader == 2)) ? 1 : 0))
                 .ForMember(x => x.DateBlock, x => x.Ignore());

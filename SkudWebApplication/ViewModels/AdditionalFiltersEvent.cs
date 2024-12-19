@@ -12,7 +12,9 @@
     }
     public class WorkerGroupsFilter
     {
+        public string StringFilter { get; set; } = string.Empty;
         public IEnumerable<WorkerGroupSelect> WorkerGroupSelects { get; set; } = new List<WorkerGroupSelect>();
+        public IEnumerable<WorkerGroupSelect> WorkerGroupSelectsFiltered { get { return WorkerGroupSelects.Where(x => x.WorkerGroup.Name.Contains(StringFilter)); } }
     }
     public class ControllerLocationSelect
     {
