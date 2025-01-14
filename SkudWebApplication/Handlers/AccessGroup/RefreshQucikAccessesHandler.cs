@@ -36,13 +36,13 @@ namespace SkudWebApplication.Handlers.AccessGroup
                             .ThenInclude(x => x.ControllerLocation)
                                 .ThenInclude(x => x.Controller)
                .AsNoTracking()
-               .Where(x => x.WorkerAccessGroup.Any(wag => wag.AccessGroup.Id == request.Id) && x.AccessMethodId == 3)
+               .Where(x => x.WorkerAccessGroup.Any(wag => wag.AccessGroup.Id == request.Id) && x.AccessMethodId == 2)
                 .ToListAsync(cancellationToken);
 
             List<DB.QuickAccess> newQuickAccesses = [];
 
             foreach (var worker in dbWorkers) {
-                if (worker.AccessMethodId == 3 && worker.WorkerAccessGroup != null)
+                if (worker.AccessMethodId == 2 && worker.WorkerAccessGroup != null)
 
                     foreach (var workeraccessgroup in worker.WorkerAccessGroup)
                     {
@@ -53,18 +53,18 @@ namespace SkudWebApplication.Handlers.AccessGroup
                         }
                     }
 
-                var quickAccessesRequest = _dbContext.Set<DB.QuickAccess>();
+                var quickAccessesRequest1 = _dbContext.Set<DB.QuickAccess>();
                 foreach (var card in worker.Cards)
                 {
                     if (newQuickAccesses.Count == 0)
                     {
-                        var dbQuickAccesses = await quickAccessesRequest.Where(x => x.Card == card.CardNumb16).ToListAsync(cancellationToken);
+                        var dbQuickAccesses = await quickAccessesRequest1.Where(x => x.Card == card.CardNumb16).ToListAsync(cancellationToken);
                         dbQuickAccesses.ForEach(x => x.Granted = 0);
                         _dbContext.UpdateRange(dbQuickAccesses);
                     }
                     foreach (var qa in newQuickAccesses)
                     {
-                        var dbQuickAccess = await quickAccessesRequest.FirstOrDefaultAsync(x => x.Sn == qa.Sn && x.Reader == qa.Reader && x.Card == card.CardNumb16, cancellationToken);
+                        var dbQuickAccess = await quickAccessesRequest1.FirstOrDefaultAsync(x => x.Sn == qa.Sn && x.Reader == qa.Reader && x.Card == card.CardNumb16, cancellationToken);
                         if (dbQuickAccess != null)
                         {
                             if (dbQuickAccess.Granted != qa.Granted || dbQuickAccess.DateBlock != qa.DateBlock)
@@ -103,11 +103,14 @@ namespace SkudWebApplication.Handlers.AccessGroup
                  .Where(x => x.Group.WorkerGroupAccess.Any(wag => wag.AccessGroup.Id == request.Id))
                   .ToListAsync(cancellationToken);
 
-            List<DB.QuickAccess> newQuickAccesses2 = [];
-
+            //List<DB.QuickAccess> newQuickAccesses2 = [];
+            
+            int counterw = 0;
+            var quickAccessesRequest = await _dbContext.Set<DB.QuickAccess>().ToListAsync(cancellationToken);
             foreach (var worker in dbWorkers2)
             {
-                if (worker.AccessMethodId == 2 && worker.Group != null)
+                List<DB.QuickAccess> newQuickAccesses2 = [];
+                if (worker.AccessMethodId == 1 && worker.Group != null)
 
                     foreach (var workeraccessgroup  in worker.Group.WorkerGroupAccess)
                     {
@@ -118,18 +121,18 @@ namespace SkudWebApplication.Handlers.AccessGroup
                         }
                     }
 
-                var quickAccessesRequest = _dbContext.Set<DB.QuickAccess>();
+                
                 foreach (var card in worker.Cards)
                 {
-                    if (newQuickAccesses.Count == 0)
+                    if (newQuickAccesses2.Count == 0)
                     {
-                        var dbQuickAccesses = await quickAccessesRequest.Where(x => x.Card == card.CardNumb16).ToListAsync(cancellationToken);
+                        var dbQuickAccesses = quickAccessesRequest.Where(x => x.Card == card.CardNumb16).ToList();
                         dbQuickAccesses.ForEach(x => x.Granted = 0);
                         _dbContext.UpdateRange(dbQuickAccesses);
                     }
-                    foreach (var qa in newQuickAccesses)
+                    foreach (var qa in newQuickAccesses2)
                     {
-                        var dbQuickAccess = await quickAccessesRequest.FirstOrDefaultAsync(x => x.Sn == qa.Sn && x.Reader == qa.Reader && x.Card == card.CardNumb16, cancellationToken);
+                        var dbQuickAccess = quickAccessesRequest.FirstOrDefault(x => x.Sn == qa.Sn && x.Reader == qa.Reader && x.Card == card.CardNumb16);
                         if (dbQuickAccess != null)
                         {
                             if (dbQuickAccess.Granted != qa.Granted || dbQuickAccess.DateBlock != qa.DateBlock)

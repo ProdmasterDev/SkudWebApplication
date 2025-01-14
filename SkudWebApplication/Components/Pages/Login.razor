@@ -65,10 +65,11 @@
         catch(ValidationException ex)
         {
             _errors = ex.Errors.Select(x => x.ErrorMessage).ToList();
+            //_errors.Add($"Произошла ошибка: {ApiProvider.ApiDomain}");
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            
+            _errors.Add($"Произошла ошибка: {ex.Message}");
         }
     }
 }

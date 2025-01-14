@@ -92,8 +92,8 @@ namespace SkudWebApplication.Services.Classes
                     .ThenInclude(x => x.ControllerLocation)
                 .Include(x => x.Group)
                 .Include(x => x.AccessMethod)
-                .Include(x => x.WorkerAccessGroup)
-                    .ThenInclude(x => x.AccessGroup)
+                .Include(x => x.WorkerAccessGroup.Where(w => w.isActive == true))
+                     .ThenInclude(x => x.AccessGroup)
                 .AsNoTracking()
                 .FirstOrDefaultAsync(x => x.Id == viewModel.Id);
             if (entity == null)
@@ -101,6 +101,13 @@ namespace SkudWebApplication.Services.Classes
                 throw new KeyNotFoundException("Группа доступа не найдена!");
             }
 
+            //foreach(var acc in entity.WorkerAccessGroup)
+            //{
+            //    if (acc.AccessGroup.Arch == true)
+            //    {
+
+            //    }
+            //}
             var request = _mapper.Map<EditWorkerRequest>(entity);
             var availableAccesses = await _dbContext
             .Set<DB.ControllerLocation>()
@@ -115,6 +122,7 @@ namespace SkudWebApplication.Services.Classes
             .ToListAsync();
             var avaibleAccessGroup = await _dbContext
             .Set<DB.AccessGroup>()
+            .Where(x => x.Arch != true)
             .Select(x => new AccessGroupWorker()
             {
                 AccessGroupId = x.Id,

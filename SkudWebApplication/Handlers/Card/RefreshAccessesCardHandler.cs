@@ -55,12 +55,12 @@ namespace SkudWebApplication.Handlers.Card
             List<DB.QuickAccess> newQuickAccesses = new();
 
 
-            if (dbWorker.AccessMethodId == 1)
+            if (dbWorker.AccessMethodId == 3)
             {
                 dbWorker.Accesses.ToList().ForEach(x => AddAccessToList(newQuickAccesses, x, string.Empty, dbWorker.DateBlock));
             }
 
-            if (dbWorker.AccessMethodId == 2 && dbWorker.Group != null)
+            if (dbWorker.AccessMethodId == 1 && dbWorker.Group != null)
             {
                 dbWorker.Group.GroupAccess.ToList().ForEach(x => AddGroupAccessToList(newQuickAccesses, x, string.Empty, dbWorker.DateBlock));
             }

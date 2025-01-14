@@ -28,6 +28,17 @@ namespace SkudWebApplication.Handlers.AccessGroup
             entity.Arch = true;
 
             _dbContext.Update(entity);
+            var WorkerAccesGroups = await _dbContext.Set<DB.WorkerAccessGroup>().Where(x => x.AccessGroupId == request.Id).ToListAsync(cancellationToken);
+            foreach (var worker in WorkerAccesGroups)
+            {
+                worker.isActive = false;
+                _dbContext.Update(worker);
+            }
+            var GroupsAccessGroups = await _dbContext.Set<DB.WorkerGroupAccess>().Where(x => x.AccessGroupId == request.Id).ToListAsync(cancellationToken);
+            foreach (var group in GroupsAccessGroups) { 
+                group.isActive = false; 
+                _dbContext.Update(group);
+            }
             await _dbContext.SaveChangesAsync(cancellationToken);
         }
     }

@@ -50,7 +50,7 @@ namespace SkudWebApplication.Services.Classes
             var entity = await _dbContext.Set<DB.WorkerGroup>()
                 .Include(x => x.GroupAccess)
                     .ThenInclude(x => x.ControllerLocation)
-                .Include(x => x.WorkerGroupAccess)
+                .Include(x => x.WorkerGroupAccess.Where(w=>w.isActive == true))
                     .ThenInclude(x => x.AccessGroup)
                 .AsNoTracking().FirstOrDefaultAsync(x => x.Id == viewModel.Id);
             if (entity == null)
@@ -73,6 +73,7 @@ namespace SkudWebApplication.Services.Classes
             .ToListAsync();
             var avaibleAccessGroup = await _dbContext
             .Set<DB.AccessGroup>()
+            .Where(x=>x.Arch != true)
             .Select(x => new AccessGroupWorker()
             {
                 AccessGroupId = x.Id,

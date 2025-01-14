@@ -26,7 +26,7 @@ namespace SkudWebApplication.Handlers.WorkerGroup
                 .Set<DB.Worker>()
                 .Include(x => x.Cards)
                 .AsNoTracking()
-                .Where(x => x.GroupId == request.Id && x.AccessMethodId == 2)
+                .Where(x => x.GroupId == request.Id && x.AccessMethodId == 1)
                 .SelectMany(x => x.Cards)
                 .ToListAsync(cancellationToken);
 
@@ -86,7 +86,7 @@ namespace SkudWebApplication.Handlers.WorkerGroup
                     }
                     else
                     {
-                        dbQuickAccess = new DB.QuickAccess() { Sn = qa.Sn, Reader = qa.Reader, Card = card.CardNumb16 };
+                        dbQuickAccess = new DB.QuickAccess() { Sn = qa.Sn, Reader = qa.Reader, Card = card.CardNumb16, Granted = 1 };
                         await _dbContext.AddAsync(dbQuickAccess, cancellationToken);
                     }
                 }

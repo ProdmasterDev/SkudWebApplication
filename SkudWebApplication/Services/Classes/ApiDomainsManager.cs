@@ -8,7 +8,7 @@ namespace SkudWebApplication.Services.Classes
         {
             {"own-iis-local", "http://localhost:5665" },
             {"own-local", "http://localhost:5036" },
-            {"own-prod", "http://localhost:5665" }
+            {"own-prod", "http://192.168.1.20:5665" }
         };
 
         public string GetDomain(string domainName)

@@ -58,12 +58,12 @@ namespace SkudWebApplication.Handlers.Location
             {
                 foreach (var card in worker.Cards)
                 {
-                    if (worker.AccessMethodId == 1)
+                    if (worker.AccessMethodId == 3)
                     {
                         worker.Accesses.ToList().ForEach(x => AddAccessToList(newQuickAccesses, x, card.CardNumb16,worker.DateBlock));
                     }
 
-                    if (worker.AccessMethodId == 2 && worker.Group != null)
+                    if (worker.AccessMethodId == 1 && worker.Group != null)
                     {
                         worker.Group.GroupAccess.ToList().ForEach(x => AddGroupAccessToList(newQuickAccesses, x, card.CardNumb16, worker.DateBlock));
                     }

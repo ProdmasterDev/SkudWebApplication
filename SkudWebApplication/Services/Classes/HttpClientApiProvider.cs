@@ -21,11 +21,13 @@ namespace SkudWebApplication.Services.Classes
             {
                 _apiDomain = apiDomainsManager.GetDomain("own-iis-local");
             }
-            if (directory.StartsWith("C:\\skud\\"))
+            if (directory.StartsWith("C:\\skud"))
             {
                 _apiDomain = apiDomainsManager.GetDomain("own-prod");
             }
+            
         }
+        //public string ApiDomain => _apiDomain;
         public async Task<TResponse> SendGetRequestAsync<TRequest, TResponse>(string apiMethod, TRequest request) where TResponse : class, new()
         {
             var uri = $"{_apiDomain}/{apiMethod}";

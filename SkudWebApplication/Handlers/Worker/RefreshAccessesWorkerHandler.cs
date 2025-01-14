@@ -31,52 +31,63 @@ namespace SkudWebApplication.Handlers.Worker
                         .ThenInclude(x => x.ControllerLocation)
                             .ThenInclude(x => x.Controller)
                 .Include(x => x.AccessMethod)
-                .Include(x=>x.WorkerAccessGroup)
-                    .ThenInclude(x => x.AccessGroup)
-                        .ThenInclude(x => x.Accesses)
-                            .ThenInclude(x => x.ControllerLocation)
-                                .ThenInclude(x => x.Controller)
                 .FirstOrDefaultAsync(x => x.Id == request.Id);
-
+                    //        .Include(x => x.WorkerAccessGroup)
+                    //.ThenInclude(x => x.AccessGroup)
+                    //    .ThenInclude(x => x.Accesses)
+                    //        .ThenInclude(x => x.ControllerLocation)
+                    //            .ThenInclude(x => x.Controller)
             if (dbWorker == null) { return; }
 
             List<DB.QuickAccess> newQuickAccesses = new();
 
 
-            if (dbWorker.AccessMethodId == 1)
+            if (dbWorker.AccessMethodId == 3)
             {
                 dbWorker.Accesses.ToList().ForEach(x => AddAccessToList(newQuickAccesses, x, string.Empty, dbWorker.DateBlock));
             }
 
-            if (dbWorker.AccessMethodId == 2 && dbWorker.Group != null)
+            if (dbWorker.AccessMethodId == 1 && dbWorker.Group != null)
             {
-                dbWorker.Group.GroupAccess.ToList().ForEach(x => AddGroupAccessToList(newQuickAccesses, x, string.Empty, dbWorker.DateBlock));
-            }
-            if (dbWorker.AccessMethodId == 3 && dbWorker.WorkerAccessGroup != null)
-            {
-                foreach (var workerAccessGroup in dbWorker.WorkerAccessGroup)
+                //dbWorker.Group.GroupAccess.ToList().ForEach(x => AddGroupAccessToList(newQuickAccesses, x, string.Empty, dbWorker.DateBlock));
+                var workerGroupAccess = await _dbContext
+                      .Set<DB.WorkerGroupAccess>()
+                      .Include(x => x.AccessGroup)
+                          .ThenInclude(x => x.Accesses)
+                              .ThenInclude(x => x.ControllerLocation)
+                                      .ThenInclude(x => x.Controller)
+                      .AsNoTracking()
+                      .Where(x => x.WorkerGroupId == dbWorker.GroupId)
+                      .ToListAsync(cancellationToken);
+                foreach (var groupsAccess in workerGroupAccess)
                 {
-                    if (workerAccessGroup.isActive)
+                    if (groupsAccess.isActive)
                     {
-                        var accessGroup = workerAccessGroup.AccessGroup.Accesses;
-                        accessGroup.ToList().ForEach(x => AddAccessGroupToList(newQuickAccesses, x, string.Empty, dbWorker.DateBlock));
+                        var accessGroup = groupsAccess.AccessGroup.Accesses;
+                        accessGroup.ToList().ForEach(x => AddAccessGroupToList(newQuickAccesses, x,string.Empty, dbWorker.DateBlock));
+                    }
+                }
+            }
+            if (dbWorker.AccessMethodId == 2)
+            {
+                var WorkerAccesGroups = await _dbContext.Set<DB.WorkerAccessGroup>()
+                    .Include(x => x.AccessGroup)
+                        .ThenInclude(x => x.Accesses)
+                            .ThenInclude(x => x.ControllerLocation)
+                                .ThenInclude(x => x.Controller).AsNoTracking().Where(x=>x.WorkerId == dbWorker.Id).ToListAsync(cancellationToken);
+
+                if (WorkerAccesGroups != null)
+                {
+                    foreach (var workerAccessGroup in WorkerAccesGroups)
+                    {
+                        if (workerAccessGroup.isActive)
+                        {
+                            var accessGroup = workerAccessGroup.AccessGroup.Accesses;
+                            accessGroup.ToList().ForEach(x => AddAccessGroupToList(newQuickAccesses, x, string.Empty, dbWorker.DateBlock));
+                        }
                     }
                 }
 
-                //var availableAccesses = await _dbContext
-                //.Set<DB.ControllerLocation>()
-                //.Include(x => x.Controller)
-                //.Select(x => new DB.AccessGroupAccess()
-                //{
-                //    ControllerLocationId = x.Id,
-                //    Enterance = false,
-                //    Exit = false,
-                //    ControllerLocation = x,
-                //})
-                //.AsNoTracking()
-                //.ToListAsync();
-                //List<DB.QuickAccess> oldQuickAccesses = new();
-                //availableAccesses.ToList().ForEach(x => AddAccessGroupToList(oldQuickAccesses, x, string.Empty, dbWorker.DateBlock));
             }
 
             var quickAccessesRequest = _dbContext.Set<DB.QuickAccess>();
@@ -105,7 +116,7 @@ namespace SkudWebApplication.Handlers.Worker
                         var dateBlock = dbWorker.DateBlock;
                         if (dateBlock != null)
                             dateBlock = dateBlock.Value.ToUniversalTime();
-                        dbQuickAccess = new DB.QuickAccess() { Sn = qa.Sn, Reader = qa.Reader, Card = card.CardNumb16, DateBlock = dateBlock };
+                        dbQuickAccess = new DB.QuickAccess() { Sn = qa.Sn, Reader = qa.Reader, Card = card.CardNumb16, DateBlock = dateBlock, Granted = 1 };
                         await _dbContext.AddAsync(dbQuickAccess, cancellationToken);
                     }
                 }

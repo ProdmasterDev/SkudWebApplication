@@ -79,6 +79,7 @@
         {
             try
             {
+                //MudDialog.Close(DialogResult.Ok(AccessGroup.Id));
                 await _accessGroupRequest.ValidateAndThrow(DbContext);
                 await _accessGroupRequest.SendToApiAsync(ApiProvider);
                 MudDialog.Close(DialogResult.Ok(AccessGroup.Id));
